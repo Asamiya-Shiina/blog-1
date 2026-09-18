@@ -1,0 +1,20 @@
+# 本地数据/数据库,不进镜像
+data/
+blog.db
+uploads/
+
+# 版本控制与文档元数据
+.git/
+.gitignore
+*.md
+
+# 编辑器/系统临时
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Docker 文件自身不入镜像
+Dockerfile
+docker-compose.yml
+.dockerignore
