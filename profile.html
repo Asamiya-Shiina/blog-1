@@ -8,6 +8,9 @@
 </head>
 <body>
 
+<video class="bg-video" autoplay muted loop playsinline src="background/Scene1.mp4"></video>
+<div class="bg-shade"></div>
+
 <header class="site-header">
   <nav class="nav">
     <div class="brand">Ciallo～(∠・ω&lt; )⌒☆</div>
@@ -21,14 +24,13 @@
     <h1>你好，我是<span class="name">沐玺</span></h1>
     <p class="profile-sub">Ciallo～(∠・ω&lt; )⌒☆</p>
     <p class="profile-bio">
-      这里是关于我的一段简短介绍，目前还没想好写什么。
-      我会一点点把这片小天地装修成自己想成为的样子，
-      也谢谢你点进来看看。
+      你好啊这里是正在上学的博主Mako，喜欢前端开发和二次元，平时也会写写东西。希望你能喜欢我的博客。
+      
     </p>
     <div class="profile-facts">
       <div class="factor">
         <span class="factor-label">爱好</span>
-        <span class="factor-value">前端 / 二次元 / 写写</span>
+        <span class="factor-value">前端 / 二次元 /游戏/音乐</span>
       </div>
       <div class="factor">
         <span class="factor-label">坐标</span>
@@ -46,5 +48,27 @@
   Ciallo～(∠・ω&lt; )⌒☆
 </footer>
 
+<!-- 圆形水波过渡层（返回首页按钮触发，与首页 hero 进简介的动画一致） -->
+<div class="ripple" id="ripple"></div>
+
+<script>
+(function () {
+  // 与 index.html 首页 hero 同一套水波扩散动画，作用到右上角「返回首页」
+  const back = document.querySelector('.back-link');
+  const ripple = document.getElementById('ripple');
+  if (!back || !ripple) return;
+  back.addEventListener('click', (e) => {
+    e.preventDefault();
+    const r = back.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    ripple.style.setProperty('--cx', cx + 'px');
+    ripple.style.setProperty('--cy', cy + 'px');
+    document.body.classList.add('profile-reveal');
+    back.classList.add('is-hiding');
+    setTimeout(() => { window.location.href = back.getAttribute('href'); }, 750);
+  });
+})();
+</script>
 </body>
 </html>

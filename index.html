@@ -11,6 +11,9 @@
 </head>
 <body>
 
+<video class="bg-video" autoplay muted loop playsinline src="background/Scene1.mp4"></video>
+<div class="bg-shade"></div>
+
 <header class="site-header">
   <nav class="nav">
     <div class="brand">Ciallo～(∠・ω&lt; )⌒☆</div>
@@ -156,6 +159,25 @@
     p.textContent = '加载失败,请刷新重试。';
     wrap.appendChild(p);
   }
+})();
+</script>
+<script>
+// 右上角「登录」进后台:套用同一套水波动画
+(function () {
+  const login = document.querySelector('.login-entry');
+  const ripple = document.getElementById('ripple');
+  if (!login || !ripple) return;
+  login.addEventListener('click', (e) => {
+    e.preventDefault();
+    const r = login.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    ripple.style.setProperty('--cx', cx + 'px');
+    ripple.style.setProperty('--cy', cy + 'px');
+    document.body.classList.add('profile-reveal');
+    login.classList.add('is-hiding');
+    setTimeout(() => { window.location.href = login.getAttribute('href'); }, 750);
+  });
 })();
 </script>
 </body>

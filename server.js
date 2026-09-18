@@ -89,6 +89,8 @@ const MIME = {
   '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
 };
 
 // ---- 帮助函数 ----
@@ -150,14 +152,49 @@ function serveStatic(req, res, pathname) {
   if (p.startsWith('/uploads/')) { root = UPLOAD_DIR; p = p.slice('/uploads'.length); } // 上传文件从 UPLOAD_DIR 提供
   const file = path.normalize(path.join(root, p));
   // 精确判定边界,防兄弟目录前缀绕过(如 dir 是 "...(2)" 时误放行 "...(2)x"...)
-  if (!(file === root || file.startsWith(root + path.sep))) { res.writeHead(403); res.end('Forbidden'); return; }
-  try {
-    fs.readFile(file, (err, data) => {
-      if (err) { res.writeHead(404); res.end('Not found'); return; }
-      res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
+if (!(file === root || file.startsWith(root + path.sep))) { res.writeHead(403); res.end('Forbidden'); return; }
+  const ext = path.extname(file).toLowerCase();
+  const type = MIME[ext] || 'application/octet-stream';
+  fs.stat(file, (err, stat) => {
+    if (err || !stat.isFile()) { res.writeHead(404); res.end('Not found'); return; }
+    // 媒体文件(mp4/webm/mp3)走流式 + Range,支持断点/进度,是背景视频能播放的前提
+    if (ext === '.mp4' || ext === '.webm' || ext === '.mp3') {
+      res.setHeader('Accept-Ranges', 'bytes');
+      const range = req.headers.range;
+      if (range) {
+        const m = /bytes=(\d*)-(\d*)/.exec(range);
+        let start = m && m[1] ? parseInt(m[1], 10) : 0;
+        let end = m && m[2] ? parseInt(m[2], 10) : stat.size - 1;
+        if (isNaN(start)) start = 0;
+        if (isNaN(end) || end >= stat.size) end = stat.size - 1;
+        if (start > end || start >= stat.size) {
+          res.writeHead(416, { 'Content-Range': 'bytes */' + stat.size });
+          return res.end();
+        }
+        res.writeHead(206, {
+          'Content-Type': type,
+          'Content-Range': 'bytes ' + start + '-' + end + '/' + stat.size,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': end - start + 1,
+        });
+        const rs = fs.createReadStream(file, { start, end });
+        rs.on('error', () => res.destroy());
+        rs.pipe(res);
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': type, 'Accept-Ranges': 'bytes' });
+      const s = fs.createReadStream(file);
+      s.on('error', () => res.destroy());
+      s.pipe(res);
+      return;
+    }
+    // 其余文件简单 readFile(NUL 已在上面拒绝,不会同步抛异常)
+    fs.readFile(file, (err2, data) => {
+      if (err2) { res.writeHead(404); res.end('Not found'); return; }
+      res.writeHead(200, { 'Content-Type': type });
       res.end(data);
     });
-  } catch { res.writeHead(400); res.end('Bad request'); return; }
+  });
 }
 
 // ---- API 路由 ----

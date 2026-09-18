@@ -9,6 +9,9 @@
 </head>
 <body>
 
+<video class="bg-video" autoplay muted loop playsinline src="background/Scene1.mp4"></video>
+<div class="bg-shade"></div>
+
 <header class="site-header">
   <nav class="nav">
     <div class="brand">Ciallo～(∠・ω< )⌒☆</div>
@@ -99,6 +102,28 @@
   </div>
 </div>
 
+<!-- 圆形水波过渡层（登录/管理页导航也套用,返回首页与水波一致） -->
+<div class="ripple" id="ripple"></div>
+
+<script>
+(function () {
+  // 与首页 hero / 简介返回同一套水波动画,作用到 admin 顶部「返回首页」
+  const back = document.querySelector('.menu a[href="index.html"]');
+  const ripple = document.getElementById('ripple');
+  if (!back || !ripple) return;
+  back.addEventListener('click', (e) => {
+    e.preventDefault();
+    const r = back.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    ripple.style.setProperty('--cx', cx + 'px');
+    ripple.style.setProperty('--cy', cy + 'px');
+    document.body.classList.add('profile-reveal');
+    back.classList.add('is-hiding');
+    setTimeout(() => { window.location.href = back.getAttribute('href'); }, 750);
+  });
+})();
+</script>
 <script src="assets/js/admin.js"></script>
 </body>
 </html>
