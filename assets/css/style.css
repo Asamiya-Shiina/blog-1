@@ -50,12 +50,37 @@ header.site-header {
 }
 .brand span { color: var(--accent); }
 
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
 .menu a {
   margin-left: 24px;
   font-size: .95rem;
   color: var(--text);
 }
 .menu a:hover { color: var(--accent); }
+
+/* 右上角登录入口,与菜单并排 */
+.login-entry {
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #c0392b, #e67e22);
+  color: #fff !important;
+  font-size: .85rem;
+  font-weight: 600;
+  letter-spacing: .5px;
+  box-shadow: 0 4px 12px rgba(230,126,34,.28);
+  white-space: nowrap;
+  transition: filter .15s ease, transform .1s ease;
+}
+.login-entry:hover {
+  color: #fff !important;
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
 
 .menu-toggle {
   display: none;
@@ -348,6 +373,98 @@ header.site-header {
   .mp-title { max-width: 80px; }
 }
 
+/* ============ 返回链接 ============ */
+.back-link {
+  font-size: .9rem;
+  font-weight: 600;
+}
+
+/* ============ 进入个人简介：圆形水波扩散过渡 ============ */
+.hero { cursor: pointer; transition: opacity .45s ease, transform .45s ease; }
+.hero.is-hiding { opacity: 0; transform: scale(.92); pointer-events: none; }
+
+.ripple {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  background: linear-gradient(135deg, #fff5ec, #ffe9f2 55%, #eaf6ff);
+  clip-path: circle(0% at var(--cx, 50%) var(--cy, 50%));
+  transition: clip-path .78s cubic-bezier(.65, 0, .35, 1);
+  pointer-events: none;
+}
+body.profile-reveal .ripple {
+  clip-path: circle(150% at var(--cx, 50%) var(--cy, 50%));
+  pointer-events: auto;
+}
+
+/* 个人简介页（profile.html） */
+.profile {
+  min-height: calc(100vh - 140px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+.profile-card {
+  width: 100%;
+  max-width: 520px;
+  background: rgba(255,255,255,.6);
+  border: 1px solid rgba(255,255,255,.8);
+  border-radius: 22px;
+  padding: 44px 34px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(255,150,140,.18);
+  animation: profileIn .7s ease .15s both;
+}
+@keyframes profileIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+.profile-card .profile-avatar {
+  width: 84px; height: 84px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f78fb3, #f7b267);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 1px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.05rem;
+}
+.profile-card h1 { font-size: 1.9rem; margin: 0 0 6px; color: var(--text); }
+.profile-card .name {
+  background: linear-gradient(90deg, #f08fc0, #e9825a, #f0b34a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.profile-sub { color: var(--muted); font-size: .9rem; margin-bottom: 16px; }
+.profile-bio {
+  color: #5b4636;
+  font-size: .98rem;
+  line-height: 1.9;
+  max-width: 460px;
+  margin: 0 auto 28px;
+}
+.profile-facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.profile-card .factor {
+  background: rgba(255,255,255,.75);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 12px;
+}
+.profile-card .factor-label {
+  display: block;
+  font-size: .72rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+  letter-spacing: 1px;
+}
+.profile-card .factor-value { font-size: .88rem; color: var(--text); font-weight: 600; }
+
 /* ============ Footer ============ */
 footer.site-footer {
   border-top: 1px solid var(--border);
@@ -369,4 +486,8 @@ footer.site-footer {
   .menu-toggle { display: block; }
   .hero { padding: 30px 22px; }
   .hero h1 { font-size: 1.6rem; }
+  .profile { padding: 28px 18px; }
+  .profile-card { padding: 34px 22px; }
+  .profile-card h1 { font-size: 1.6rem; }
+  .profile-facts { grid-template-columns: 1fr; }
 }

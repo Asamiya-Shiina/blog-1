@@ -5,18 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ciallo～(∠・ω&lt; )⌒☆</title>
 <link rel="stylesheet" href="assets/css/style.css">
+<style>
+  .empty { color: var(--muted); text-align: center; padding: 48px 20px; font-size: .95rem; }
+</style>
 </head>
 <body>
 
 <header class="site-header">
   <nav class="nav">
     <div class="brand">Ciallo～(∠・ω&lt; )⌒☆</div>
-    <button class="menu-toggle" id="menuToggle" aria-label="打开菜单">☰</button>
-    <div class="menu" id="menu">
-      <a href="#home">首页</a>
-      <a href="#posts">文章</a>
-      <a href="#about">关于</a>
-      <a href="#search">搜索</a>
+    <div class="nav-right">
+      <button class="menu-toggle" id="menuToggle" aria-label="打开菜单">☰</button>
+      <div class="menu" id="menu">
+        <a href="#home">首页</a>
+        <a href="#posts">文章</a>
+        <a href="#about">关于</a>
+        <a href="#search">搜索</a>
+      </div>
+      <a class="login-entry" href="admin.html">登录 ✦</a>
     </div>
   </nav>
 </header>
@@ -32,48 +38,7 @@
     </section>
 
     <section id="posts">
-      <article class="post">
-        <div class="post-meta">
-          <span>2026-09-15</span>
-          <span>·</span>
-          <span class="tag">技术</span>
-        </div>
-        <h2><a href="#">施工中</a></h2>
-        <p class="excerpt">施工中</p>
-        <a class="read-more" href="#">继续阅读 →</a>
-      </article>
-
-      <article class="post">
-        <div class="post-meta">
-          <span>2026-09-08</span>
-          <span>·</span>
-          <span class="tag">随笔</span>
-        </div>
-        <h2><a href="#">施工中</a></h2>
-        <p class="excerpt">施工中</p>
-        <a class="read-more" href="#">继续阅读 →</a>
-      </article>
-
-      <article class="post">
-        <div class="post-meta">
-          <span>2026-08-27</span>
-          <span>·</span>
-          <span class="tag">前端</span>
-        </div>
-        <h2><a href="#">施工中</a></h2>
-        <p class="excerpt">施工中</p>
-      </article>
-
-      <article class="post">
-        <div class="post-meta">
-          <span>2026-08-10</span>
-          <span>·</span>
-          <span class="tag">施工中</span>
-        </div>
-        <h2><a href="#">施工中</a></h2>
-        <p class="excerpt">施工中</p>
-        <a class="read-more" href="#">继续阅读 →</a>
-      </article>
+      <p class="empty">加载中…</p>
     </section>
   </div>
 
@@ -112,6 +77,9 @@
   Ciallo～(∠・ω&lt; )⌒☆
 </footer>
 
+<!-- 圆形水波过渡层（播完跳转简介页） -->
+<div class="ripple" id="ripple"></div>
+
 <!-- 悬浮音乐播放器 -->
 <div class="music-player" id="musicPlayer">
   <div class="mp-inner">
@@ -133,5 +101,62 @@
 </div>
 
 <script src="assets/js/main.js"></script>
+<script>
+(async function () {
+  const wrap = document.getElementById('posts');
+  try {
+    const res = await fetch('/api/posts');
+    if (!res.ok) throw new Error('http ' + res.status);
+    const posts = await res.json();
+    wrap.textContent = '';
+    if (!posts.length) {
+      const p = document.createElement('p');
+      p.className = 'empty';
+      p.textContent = '暂无文章,敬请期待ヽ(=^･ω･^=)丿';
+      wrap.appendChild(p);
+      return;
+    }
+    posts.forEach((post) => {
+      const art = document.createElement('article');
+      art.className = 'post';
+
+      const meta = document.createElement('div');
+      meta.className = 'post-meta';
+      const d = document.createElement('span');
+      d.textContent = post.created_at;
+      const dot = document.createElement('span');
+      dot.textContent = '·';
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = post.tag || '未分类';
+      meta.append(d, dot, tag);
+
+      const h2 = document.createElement('h2');
+      const a = document.createElement('a');
+      a.href = 'post.html?id=' + post.id;
+      a.textContent = post.title;
+      h2.appendChild(a);
+
+      const ex = document.createElement('p');
+      ex.className = 'excerpt';
+      ex.textContent = post.excerpt;
+
+      const rm = document.createElement('a');
+      rm.className = 'read-more';
+      rm.href = 'post.html?id=' + post.id;
+      rm.textContent = '继续阅读 →';
+
+      art.append(meta, h2, ex, rm);
+      wrap.appendChild(art);
+    });
+  } catch (e) {
+    wrap.textContent = '';
+    const p = document.createElement('p');
+    p.className = 'empty';
+    p.textContent = '加载失败,请刷新重试。';
+    wrap.appendChild(p);
+  }
+})();
+</script>
 </body>
 </html>

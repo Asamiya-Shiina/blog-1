@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>后台管理 · Ciallo～(∠・ω< )⌒☆</title>
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body>
+
+<header class="site-header">
+  <nav class="nav">
+    <div class="brand">Ciallo～(∠・ω< )⌒☆</div>
+    <div class="menu">
+      <a href="index.html">← 返回首页</a>
+    </div>
+  </nav>
+</header>
+
+<!-- 登录态 -->
+<div class="login-box" id="loginView">
+  <div class="login-card">
+    <h1>后台登录</h1>
+    <p class="sub">输入站主密码进入管理</p>
+    <div class="field">
+      <label for="passInput">密码</label>
+      <input type="password" id="passInput" autocomplete="current-password" placeholder="请输入密码">
+    </div>
+    <button class="btn" id="loginBtn">登录</button>
+    <p class="login-err" id="loginErr"></p>
+  </div>
+</div>
+
+<!-- 管理区(登录后显示) -->
+<div class="admin-wrap" id="adminView" hidden>
+  <div class="admin-toolbar">
+    <h1>文章管理</h1>
+    <div>
+      <button class="btn secondary small" id="newBtn">＋ 写新文章</button>
+      <button class="btn secondary small" id="logoutBtn">退出登录</button>
+    </div>
+  </div>
+
+  <div class="admin-card" id="editorCard" hidden>
+    <div class="editor-head">
+      <h2 id="editorTitle">写新文章</h2>
+      <div>
+        <button class="btn secondary small" id="cancelEditorBtn">取消</button>
+        <button class="btn small" id="saveBtn">保存 / 发布</button>
+      </div>
+    </div>
+    <div class="upload-row">
+      <label class="btn secondary small" for="imgInput">🖼 上传图片</label>
+      <input type="file" id="imgInput" accept="image/*" hidden>
+      <span class="hint">上传后图片会以 Markdown 语法插入到正文光标处。</span>
+      <span id="uploadStatus"></span>
+    </div>
+    <div class="field">
+      <label for="titleInput">标题 *</label>
+      <input id="titleInput" maxlength="200" placeholder="文章标题">
+    </div>
+    <div class="field">
+      <label for="tagInput">分类 / 标签</label>
+      <input id="tagInput" maxlength="50" placeholder="如:技术、随笔">
+    </div>
+    <div class="field">
+      <label for="excerptInput">摘要</label>
+      <input id="excerptInput" maxlength="500" placeholder="一句话摘要(首页卡片显示)">
+    </div>
+    <div class="field">
+      <label for="contentInput">正文(Markdown)</label>
+      <textarea id="contentInput" rows="16" placeholder="支持标题、加粗、列表、代码块、图片等 Markdown 语法…"></textarea>
+    </div>
+  </div>
+
+  <div class="admin-card">
+    <p class="hint">共 <span id="postCount">0</span> 篇文章</p>
+    <div id="postList"></div>
+    <p class="empty" id="listEmpty" hidden>还没有文章,点「写新文章」开始吧 ✧</p>
+  </div>
+</div>
+
+<script src="assets/js/admin.js"></script>
+</body>
+</html>

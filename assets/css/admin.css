@@ -1,0 +1,215 @@
+/* ============ 详情页 & 后台(清新甜美风,沿用 style.css 变量) ============ */
+
+/* ---- 文章详情页布局 ---- */
+.post-page {
+  display: block;
+  max-width: 760px;
+  margin: 40px auto;
+  padding: 0 24px;
+}
+.post-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 44px 40px;
+  box-shadow: var(--shadow);
+}
+.post-back {
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.post-back:hover { color: var(--accent); }
+.post-title {
+  font-size: 1.9rem;
+  line-height: 1.3;
+  margin: 14px 0 10px;
+  background: linear-gradient(90deg, #f08fc0, #e9825a, #f0b34a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.post-page-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: .82rem;
+  color: var(--muted);
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.post-page-meta .tag {
+  background: #fdecea;
+  color: var(--accent);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: .75rem;
+}
+
+/* ---- Markdown 正文排版 ---- */
+.md-body { color: #3a3a3a; font-size: 1rem; line-height: 1.85; }
+.md-body h1, .md-body h2, .md-body h3,
+.md-body h4, .md-body h5, .md-body h6 {
+  color: var(--text);
+  line-height: 1.4;
+  margin: 1.6em 0 .6em;
+  font-weight: 700;
+}
+.md-body h1 { font-size: 1.6rem; border-bottom: 1px solid var(--border); padding-bottom: .4em; }
+.md-body h2 { font-size: 1.35rem; }
+.md-body h3 { font-size: 1.15rem; }
+.md-body p { margin: .9em 0; }
+.md-body ul, .md-body ol { margin: .9em 0; padding-left: 1.5em; }
+.md-body li { margin: .35em 0; }
+.md-body a { color: var(--accent); text-decoration: underline dotted; }
+.md-body a:hover { color: var(--accent-dark); }
+.md-body strong { font-weight: 700; color: var(--text); }
+.md-body em { color: #8a4b6b; }
+.md-body code {
+  background: #f5efe7;
+  color: #c0392b;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: .88em;
+}
+.md-body pre {
+  background: #2d2d2d;
+  color: #f0e6d6;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin: 1.1em 0;
+  overflow-x: auto;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+}
+.md-body pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: .85em;
+  line-height: 1.6;
+}
+.md-body blockquote {
+  margin: 1.1em 0;
+  padding: .6em 1em;
+  border-left: 4px solid #f0b3c6;
+  background: linear-gradient(90deg, #fff4f6, transparent);
+  border-radius: 0 10px 10px 0;
+  color: #7a6a5e;
+}
+.md-body img {
+  max-width: 100%;
+  border-radius: 12px;
+  margin: .6em 0;
+  box-shadow: var(--shadow);
+}
+.md-body hr { border: none; border-top: 1px solid var(--border); margin: 1.6em 0; }
+.md-body del { color: var(--muted); }
+
+/* ---- 后台:通用控件 ---- */
+.admin-wrap {
+  max-width: 780px;
+  margin: 40px auto;
+  padding: 0 24px;
+}
+.admin-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: var(--shadow);
+}
+.admin-card h1 { font-size: 1.4rem; margin-bottom: 20px; color: var(--text); }
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, #c0392b, #e67e22);
+  color: #fff;
+  transition: filter .15s ease, transform .1s ease;
+  box-shadow: 0 4px 12px rgba(230,126,34,.25);
+}
+.btn:hover { filter: brightness(1.06); }
+.btn:active { transform: scale(.98); }
+.btn.secondary { background: linear-gradient(135deg, #f5efe7, #e9e0d4); color: #5b4636; box-shadow: none; }
+.btn.danger { background: linear-gradient(135deg, #c0392b, #d0533c); box-shadow: none; }
+.btn.small { padding: 5px 12px; font-size: .8rem; border-radius: 8px; box-shadow: none; }
+
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: .84rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.field input, .field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: .95rem;
+  background: #fff;
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.field input:focus, .field textarea:focus {
+  border-color: #e9825a;
+  box-shadow: 0 0 0 3px rgba(233,130,90,.15);
+}
+.field textarea { resize: vertical; line-height: 1.6; }
+
+/* ---- 后台:登录 ---- */
+.login-box {
+  max-width: 380px;
+  margin: 12vh auto;
+  padding: 0 24px;
+}
+.login-card {
+  background:
+    radial-gradient(circle at 90% 10%, rgba(255,210,230,.5) 0 90px, transparent 91px),
+    radial-gradient(circle at 8% 92%, rgba(255,228,200,.55) 0 80px, transparent 81px),
+    var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 40px 34px;
+  box-shadow: 0 12px 40px rgba(255,150,140,.18);
+  text-align: center;
+}
+.login-card h1 { font-size: 1.3rem; margin-bottom: 6px; color: var(--text); }
+.login-card p.sub { color: var(--muted); font-size: .85rem; margin-bottom: 26px; }
+.login-card .field, .login-card .btn { text-align: left; width: 100%; }
+.login-card .btn { margin-top: 6px; }
+.login-err { color: var(--accent); font-size: .85rem; min-height: 1.2em; margin-top: 12px; }
+
+/* ---- 后台:文章列表 ---- */
+.admin-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
+.admin-toolbar h1 { margin: 0; }
+.post-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.post-row:last-child { border-bottom: none; }
+.post-row-info { min-width: 0; }
+.post-row-title { font-weight: 600; color: var(--text); font-size: .98rem; margin-bottom: 3px; }
+.post-row-meta { font-size: .78rem; color: var(--muted); }
+.post-row-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.empty { color: var(--muted); text-align: center; padding: 40px 20px; font-size: .95rem; }
+
+/* ---- 编辑器 ---- */
+.editor-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.editor-head h2 { margin: 0; font-size: 1.15rem; }
+.hint { font-size: .8rem; color: var(--muted); margin-bottom: 14px; }
+.upload-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.upload-row .hint { margin: 0; }
+#uploadStatus { font-size: .82rem; color: var(--muted); }
+
+@media (max-width: 760px) {
+  .post-content { padding: 30px 22px; }
+  .post-title { font-size: 1.5rem; }
+  .admin-card { padding: 24px 20px; }
+}
