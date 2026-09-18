@@ -1,3 +1,6 @@
+// 后台管理页逻辑
+// 页面分流三种状态:首次设置密码(setupView) / 登录(loginView) / 管理区(adminView)。
+// 通过 /api/me 的 loggedIn + needsSetup 字段决定进入哪个视图。
 (function () {
   const $ = (id) => document.getElementById(id);
 

@@ -1,3 +1,8 @@
+// 沐玺博客后端
+// 零依赖 Node 服务:http 静态服务器 + SQLite(db) + JSON API。
+// 数据持久化 —— 数据库与上传目录可通过环境变量外置(Docker 场景挂命名卷):
+//   PORT / HOST / DB_PATH / UPLOAD_DIR
+// 认证 —— 后台用 HttpOnly cookie 会话;无写死的默认密码,首次运行走 /api/setup 设置。
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -68,8 +73,8 @@ const MAX_LOGIN_FAILS = 5;
 const LOGIN_WINDOW = 10 * 60 * 1000;
 
 // ---- 会话(内存) ----
+// 会话只存进程内存:重启即全部失效(需重新登录),适合单机/小规模场景。
 const sessions = new Map(); // token -> { createdAt }
-let sessionSeq = 0;
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -299,6 +304,7 @@ async function handleAPI(req, res, pathname) {
 }
 
 // ---- 服务器 ----
+// 路由分层:/api/* 交给 JSON 接口(异步,带错误兜底),其余按静态文件服务。
 http.createServer((req, res) => {
   setSecurityHeaders(res);
   const u = req.url.split('#')[0];
