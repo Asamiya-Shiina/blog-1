@@ -24,6 +24,7 @@
   const postCount = $('postCount');
 
   let editingId = null; // null = 新建
+  let editSeq = 0; // 递增序号,丢弃过期的"编辑加载"结果,防连点竞态
 
   async function api(url, opts) {
     const res = await fetch(url, opts);
@@ -31,8 +32,8 @@
     if (!res.ok) throw new Error(data.error || '请求失败');
     return data;
   }
-  const jsonOpts = (obj) => ({
-    method: 'POST',
+  const jsonOpts = (obj, method = 'POST') => ({
+    method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(obj),
   });
@@ -109,8 +110,10 @@
   }
 
   async function editPost(id) {
+    const seq = ++editSeq;
     editingId = id;
     const p = await api('/api/posts/' + id);
+    if (seq !== editSeq) return; // 期间用户已切到别的文章,丢弃过期结果
     titleInput.value = p.title;
     tagInput.value = p.tag || '';
     excerptInput.value = p.excerpt || '';
@@ -131,7 +134,7 @@
       if (editingId === null) {
         await api('/api/posts', jsonOpts(data));
       } else {
-        await api('/api/posts/' + editingId, jsonOpts(data));
+        await api('/api/posts/' + editingId, jsonOpts(data, 'PUT'));
       }
     } catch (e) { alert(e.message); return; }
     closeEditor();

@@ -45,7 +45,12 @@
 
   const body = document.createElement('div');
   body.className = 'md-body';
-  body.innerHTML = Markdown.render(post.content);
+  if (typeof Markdown === 'undefined') {
+    body.textContent = post.content; // markdown.js 加载失败时退化为纯文本,页面不空白
+  } else {
+    try { body.innerHTML = Markdown.render(post.content); }
+    catch { body.textContent = '（正文渲染失败）'; }
+  }
 
   host.append(back, h1, meta, body);
 })();
