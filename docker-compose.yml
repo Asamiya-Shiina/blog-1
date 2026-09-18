@@ -1,18 +1,14 @@
 services:
   blog:
-    # 服务器一键部署:指向 GHCR 已发布镜像,up -d 自动拉取 latest
-    image: ghcr.io/asamiya-shiina/blog:latest
-    pull_policy: always
-    # 本地开发想直接构建时,取消下行注释并去掉上方 image/pull_policy
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: blog
     restart: unless-stopped
     ports:
       - "${BLOG_PORT:-8080}:8080"
     volumes:
-      # 命名卷持久化数据库与上传文件,升级/重建/重新拉取都不丢数据
+      # 命名卷持久化数据库与上传文件,容器重建/升级不丢数据
       - blog-data:/data
 
 volumes:
