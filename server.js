@@ -1,3 +1,8 @@
+// 沐玺博客后端
+// 零依赖 Node 服务:http 静态服务器 + SQLite(db) + JSON API。
+// 数据持久化 —— 数据库与上传目录可通过环境变量外置(Docker 场景挂命名卷):
+//   PORT / HOST / DB_PATH / UPLOAD_DIR
+// 认证 —— 后台用 HttpOnly cookie 会话;无写死的默认密码,首次运行走 /api/setup 设置。
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -9,9 +14,6 @@ const PORT = Number(process.env.PORT || 8080);
 const HOST = process.env.HOST || '127.0.0.1';
 const DB_PATH = process.env.DB_PATH || path.join(dir, 'blog.db');
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(dir, 'uploads');
-
-// 后台默认密码(首次启动写入 DB 哈希)。想改密码,改这里后删除 blog.db 再重启。
-const DEFAULT_ADMIN_PASSWORD = 'muxi123';
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 const db = new DatabaseSync(DB_PATH);
@@ -64,10 +66,6 @@ function verifyPassword(pw) {
   if (ok) setSetting('admin_password_hash', scryptHash(pw));
   return ok;
 }
-if (!getSetting('admin_password_hash')) {
-  setSetting('admin_password_hash', scryptHash(DEFAULT_ADMIN_PASSWORD));
-  console.log(`[init] 已写入后台默认密码: ${DEFAULT_ADMIN_PASSWORD}`);
-}
 
 // 登录失败限流:每 IP 记录失败次数,超限后锁 10 分钟,防暴力破解
 const loginFails = new Map(); // ip -> { count, until }
@@ -75,8 +73,8 @@ const MAX_LOGIN_FAILS = 5;
 const LOGIN_WINDOW = 10 * 60 * 1000;
 
 // ---- 会话(内存) ----
+// 会话只存进程内存:重启即全部失效(需重新登录),适合单机/小规模场景。
 const sessions = new Map(); // token -> { createdAt }
-let sessionSeq = 0;
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -254,7 +252,28 @@ async function handleAPI(req, res, pathname) {
   }
 
   if (pathname === '/api/me' && req.method === 'GET') {
-    return sendJSON(res, 200, { loggedIn: !!requireAuth(req) });
+    return sendJSON(res, 200, {
+      loggedIn: !!requireAuth(req),
+      needsSetup: !getSetting('admin_password_hash'), // 尚未设置管理员密码则引导进入设置页
+    });
+  }
+
+  // 首次设置管理员密码:仅当尚无密码时允许(公开,不需登录),一设即成登录态
+  if (pathname === '/api/setup' && req.method === 'POST') {
+    if (getSetting('admin_password_hash')) return sendJSON(res, 409, { error: '管理员密码已设置' });
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { return sendJSON(res, 400, { error: 'bad json' }); }
+    const pw = (body && body.password) || '';
+    if (pw.length < 6) return sendJSON(res, 400, { error: '密码至少 6 位' });
+    setSetting('admin_password_hash', scryptHash(pw));
+    const token = crypto.randomBytes(24).toString('hex');
+    sessions.set(token, { createdAt: Date.now() });
+    res.writeHead(200, {
+      'Content-Type': MIME['.json'],
+      'Set-Cookie': 'blog_token=' + token + '; HttpOnly; Path=/; SameSite=Strict; Max-Age=604800',
+    });
+    res.end(JSON.stringify({ ok: true }));
+    return;
   }
 
   if (!requireAuth(req)) return sendJSON(res, 401, { error: '未登录' });
@@ -322,6 +341,7 @@ async function handleAPI(req, res, pathname) {
 }
 
 // ---- 服务器 ----
+// 路由分层:/api/* 交给 JSON 接口(异步,带错误兜底),其余按静态文件服务。
 http.createServer((req, res) => {
   setSecurityHeaders(res);
   const u = req.url.split('#')[0];
@@ -338,5 +358,5 @@ http.createServer((req, res) => {
 }).listen(PORT, HOST, () => {
   console.log(`Ciallo～ 博客运行中 →  http://${HOST}:${PORT}`);
   console.log(`后台管理 →  http://${HOST}:${PORT}/admin.html`);
-  console.log(`后台默认密码 →  ${DEFAULT_ADMIN_PASSWORD}(可改源码顶部常量)`);
+  if (!getSetting('admin_password_hash')) console.log(`尚未设置管理员密码,首次访问后台将引导设置`);
 });
