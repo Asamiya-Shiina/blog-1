@@ -88,6 +88,8 @@ const MIME = {
   '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
 };
 
 // ---- 帮助函数 ----
@@ -141,10 +143,34 @@ function serveStatic(req, res, pathname) {
   const file = path.normalize(path.join(dir, p));
   // 精确判定边界,防兄弟目录前缀绕过(如 dir 是 "...(2)" 时误放行 "...(2)x"...)
   if (!(file === dir || file.startsWith(dir + path.sep))) { res.writeHead(403); res.end('Forbidden'); return; }
-  fs.readFile(file, (err, data) => {
-    if (err) { res.writeHead(404); res.end('Not found'); return; }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
-    res.end(data);
+  const ext = path.extname(file).toLowerCase();
+  const type = MIME[ext] || 'application/octet-stream';
+  fs.stat(file, (err, stat) => {
+    if (err || !stat.isFile()) { res.writeHead(404); res.end('Not found'); return; }
+    const isMedia = ext === '.mp4' || ext === '.webm' || ext === '.mp3';
+    const range = req.headers.range;
+    if (isMedia && range) {
+      const m = /bytes=(\d*)-(\d*)/.exec(range);
+      let start = m && m[1] ? parseInt(m[1], 10) : 0;
+      let end = m && m[2] ? parseInt(m[2], 10) : stat.size - 1;
+      if (isNaN(start)) start = 0;
+      if (isNaN(end) || end >= stat.size) end = stat.size - 1;
+      if (start > end || start >= stat.size) {
+        res.writeHead(416, { 'Content-Range': 'bytes */' + stat.size });
+        return res.end();
+      }
+      res.writeHead(206, {
+        'Content-Type': type,
+        'Content-Range': 'bytes ' + start + '-' + end + '/' + stat.size,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': end - start + 1,
+      });
+      fs.createReadStream(file, { start, end }).pipe(res);
+    } else {
+      if (isMedia) res.setHeader('Accept-Ranges', 'bytes');
+      res.writeHead(200, { 'Content-Type': type, 'Accept-Ranges': 'bytes' });
+      fs.createReadStream(file).pipe(res);
+    }
   });
 }
 

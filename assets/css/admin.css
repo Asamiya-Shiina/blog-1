@@ -161,8 +161,8 @@
 
 /* ---- 后台:登录 ---- */
 .login-box {
-  max-width: 380px;
-  margin: 12vh auto;
+  max-width: 500px;
+  margin: 10vh auto;
   padding: 0 24px;
 }
 .login-card {
@@ -171,16 +171,28 @@
     radial-gradient(circle at 8% 92%, rgba(255,228,200,.55) 0 80px, transparent 81px),
     var(--surface);
   border: 1px solid var(--border);
-  border-radius: 22px;
-  padding: 40px 34px;
-  box-shadow: 0 12px 40px rgba(255,150,140,.18);
+  border-radius: 26px;
+  padding: 56px 48px;
+  box-shadow: 0 14px 44px rgba(255,150,140,.2);
   text-align: center;
 }
-.login-card h1 { font-size: 1.3rem; margin-bottom: 6px; color: var(--text); }
-.login-card p.sub { color: var(--muted); font-size: .85rem; margin-bottom: 26px; }
+.login-card h1 { font-size: 1.65rem; margin-bottom: 8px; color: var(--text); }
+.login-card p.sub { color: var(--muted); font-size: .95rem; margin-bottom: 34px; }
 .login-card .field, .login-card .btn { text-align: left; width: 100%; }
-.login-card .btn { margin-top: 6px; }
-.login-err { color: var(--accent); font-size: .85rem; min-height: 1.2em; margin-top: 12px; }
+.login-card .field { margin-bottom: 22px; }
+.login-card .field label { font-size: .92rem; margin-bottom: 8px; }
+.login-card .field input {
+  padding: 15px 17px;
+  font-size: 1.1rem;
+  border-radius: 13px;
+}
+.login-card .btn {
+  margin-top: 10px;
+  padding: 15px;
+  font-size: 1.05rem;
+  border-radius: 13px;
+}
+.login-err { color: var(--accent); font-size: .9rem; min-height: 1.2em; margin-top: 14px; }
 
 /* ---- 后台:文章列表 ---- */
 .admin-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }

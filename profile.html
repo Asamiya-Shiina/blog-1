@@ -8,6 +8,9 @@
 </head>
 <body>
 
+<video class="bg-video" autoplay muted loop playsinline src="background/Scene1.mp4"></video>
+<div class="bg-shade"></div>
+
 <header class="site-header">
   <nav class="nav">
     <div class="brand">Ciallo～(∠・ω&lt; )⌒☆</div>
@@ -45,9 +48,27 @@
   Ciallo～(∠・ω&lt; )⌒☆
 </footer>
 
-<!-- 圆形水波过渡层（页面切换通用） -->
+<!-- 圆形水波过渡层（返回首页按钮触发，与首页 hero 进简介的动画一致） -->
 <div class="ripple" id="ripple"></div>
 
-<script src="assets/js/transition.js"></script>
+<script>
+(function () {
+  // 与 index.html 首页 hero 同一套水波扩散动画，作用到右上角「返回首页」
+  const back = document.querySelector('.back-link');
+  const ripple = document.getElementById('ripple');
+  if (!back || !ripple) return;
+  back.addEventListener('click', (e) => {
+    e.preventDefault();
+    const r = back.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    ripple.style.setProperty('--cx', cx + 'px');
+    ripple.style.setProperty('--cy', cy + 'px');
+    document.body.classList.add('profile-reveal');
+    back.classList.add('is-hiding');
+    setTimeout(() => { window.location.href = back.getAttribute('href'); }, 750);
+  });
+})();
+</script>
 </body>
 </html>

@@ -40,6 +40,20 @@
   function showLogin() { loginView.hidden = false; adminView.hidden = true; }
   function showAdmin() { loginView.hidden = true; adminView.hidden = false; }
 
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // 从某个元素中心触发水波盖屏(与首页 hero 进简介同一套动画)
+  function rippleFrom(el) {
+    const ripple = document.getElementById('ripple');
+    if (!ripple) return false;
+    const r = el.getBoundingClientRect();
+    ripple.style.setProperty('--cx', (r.left + r.width / 2) + 'px');
+    ripple.style.setProperty('--cy', (r.top + r.height / 2) + 'px');
+    document.body.classList.add('profile-reveal');
+    return true;
+  }
+
+  let rippleBusy = false; // 防止水波期间连点
+
   async function loadPosts() {
     const posts = await api('/api/posts');
     postList.textContent = '';
@@ -127,12 +141,19 @@
 
   // ---- 事件 ----
   loginBtn.addEventListener('click', async () => {
+    if (rippleBusy) return;
     loginErr.textContent = '';
     try {
       await api('/api/login', jsonOpts({ password: passInput.value }));
       passInput.value = '';
+      // 水波盖屏后露出管理界面
+      rippleBusy = true;
+      rippleFrom(loginBtn);
+      await sleep(750);
       showAdmin();
-      loadPosts();
+      await loadPosts();
+      document.body.classList.remove('profile-reveal'); // 水波回缩,呈现 zoom-in 效果
+      rippleBusy = false;
     } catch (e) {
       loginErr.textContent = e.message || '登录失败';
     }

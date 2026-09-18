@@ -108,14 +108,19 @@ mpBar.addEventListener('click', (e) => {
   }
 });
 
-// ============ 进入个人简介：复用全局水波过渡 transition.js ============
+// ============ 进入个人简介：圆形水波扩散后跳转 ============
 const hero = document.querySelector('.hero');
+const ripple = document.getElementById('ripple');
 
-if (hero && window.Trans) {
+if (hero && ripple) {
   hero.addEventListener('click', () => {
     const r = hero.getBoundingClientRect();
     const cx = r.left + r.width / 2;
     const cy = r.top + r.height / 2;
-    window.Trans.go('profile.html', cx, cy, hero);
+    ripple.style.setProperty('--cx', cx + 'px');
+    ripple.style.setProperty('--cy', cy + 'px');
+    document.body.classList.add('profile-reveal');
+    hero.classList.add('is-hiding');
+    setTimeout(() => { window.location.href = 'profile.html'; }, 750);
   });
 }
