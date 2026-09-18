@@ -76,6 +76,11 @@
 
       const actions = document.createElement('div');
       actions.className = 'post-row-actions';
+      const viewBtn = document.createElement('button');
+      viewBtn.className = 'btn small secondary';
+      viewBtn.textContent = '查看';
+      viewBtn.title = '新标签页打开文章';
+      viewBtn.addEventListener('click', () => window.open('post.html?id=' + p.id, '_blank'));
       const editBtn = document.createElement('button');
       editBtn.className = 'btn small secondary';
       editBtn.textContent = '编辑';
@@ -84,7 +89,7 @@
       delBtn.className = 'btn small danger';
       delBtn.textContent = '删除';
       delBtn.addEventListener('click', () => delPost(p));
-      actions.append(editBtn, delBtn);
+      actions.append(viewBtn, editBtn, delBtn);
 
       row.append(info, actions);
       postList.appendChild(row);
