@@ -31,6 +31,27 @@
   Ciallo～(∠・ω< )⌒☆
 </footer>
 
+<!-- 悬浮音乐播放器（跨页持久化,自动从上次位置续播） -->
+<div class="music-player" id="musicPlayer">
+  <div class="mp-inner">
+    <div class="mp-disc" id="mpDisc">
+      <span class="mp-disc-hole"></span>
+    </div>
+    <div class="mp-info">
+      <div class="mp-title">恋せよ乙女!</div>
+      <div class="mp-artist">米倉千尋</div>
+    </div>
+    <div class="mp-progress">
+      <div class="mp-bar" id="mpBar"><div class="mp-bar-fill" id="mpFill"></div></div>
+      <div class="mp-time"><span id="mpCurrent">00:00</span><span>/</span><span id="mpDuration">--:--</span></div>
+    </div>
+    <button class="mp-btn" id="mpPlay" aria-label="播放/暂停">▶</button>
+  </div>
+  <button class="mp-float" id="mpToggle" aria-label="打开播放器">♪</button>
+  <audio id="mpAudio" src="music/米倉千尋 - 恋せよ乙女! (恋爱吧少女).mp3"></audio>
+</div>
+
+<script src="assets/js/player.js"></script>
 <script src="assets/js/markdown.js"></script>
 <script src="assets/js/post.js"></script>
 </body>
