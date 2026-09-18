@@ -94,11 +94,17 @@ const MIME = {
 function getCookie(req, name) {
   const raw = req.headers.cookie || '';
   const m = raw.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
-  return m ? decodeURIComponent(m[1]) : null;
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch { return null; }
 }
+const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 与登录 cookie 的 Max-Age 一致(604800s)
 function requireAuth(req) {
   const token = getCookie(req, 'blog_token');
-  return token && sessions.has(token) ? token : null;
+  if (!token) return null;
+  const s = sessions.get(token);
+  if (!s) return null;
+  if (Date.now() - s.createdAt > SESSION_TTL) { sessions.delete(token); return null; } // 服务端强制过期,可吊销
+  return token;
 }
 
 function sendJSON(res, code, obj) {
@@ -137,15 +143,18 @@ function setSecurityHeaders(res) {
 function serveStatic(req, res, pathname) {
   let p;
   try { p = decodeURIComponent(pathname); } catch { res.writeHead(400); res.end('Bad request'); return; }
+  if (p.includes('\0')) { res.writeHead(400); res.end('Bad request'); return; } // 拒绝 NUL,防同步抛异常崩溃
   if (p === '/') p = '/index.html';
   const file = path.normalize(path.join(dir, p));
   // 精确判定边界,防兄弟目录前缀绕过(如 dir 是 "...(2)" 时误放行 "...(2)x"...)
   if (!(file === dir || file.startsWith(dir + path.sep))) { res.writeHead(403); res.end('Forbidden'); return; }
-  fs.readFile(file, (err, data) => {
-    if (err) { res.writeHead(404); res.end('Not found'); return; }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
-    res.end(data);
-  });
+  try {
+    fs.readFile(file, (err, data) => {
+      if (err) { res.writeHead(404); res.end('Not found'); return; }
+      res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
+      res.end(data);
+    });
+  } catch { res.writeHead(400); res.end('Bad request'); return; }
 }
 
 // ---- API 路由 ----
@@ -174,9 +183,10 @@ async function handleAPI(req, res, pathname) {
     if (rec && rec.until > now) {
       return sendJSON(res, 429, { error: '尝试次数过多,请 ' + Math.ceil((rec.until - now) / 1000) + ' 秒后再试' });
     }
-    if (!verifyPassword(body.password || '')) {
-      const count = (rec ? rec.count : 0) + 1;
-      loginFails.set(ip, { count, until: count >= MAX_LOGIN_FAILS ? now + LOGIN_WINDOW : (rec ? rec.until : 0) });
+    if (!verifyPassword((body && body.password) || '')) {
+      const count = (rec && rec.until > now ? rec.count : 0) + 1; // 超出锁定窗口后重新计数
+      loginFails.set(ip, { count, until: count >= MAX_LOGIN_FAILS ? now + LOGIN_WINDOW : 0 });
+      if (loginFails.size > 10000) loginFails.delete(loginFails.keys().next().value); // 防 Map 无限增长
       return sendJSON(res, 401, { error: '密码错误' });
     }
     if (rec) loginFails.delete(ip);
@@ -211,7 +221,7 @@ async function handleAPI(req, res, pathname) {
   if (m && req.method === 'POST') {
     let body;
     try { body = JSON.parse(await readBody(req)); } catch { return sendJSON(res, 400, { error: 'bad json' }); }
-    const dataUrl = String(body.data || '');
+    const dataUrl = String((body && body.data) || '');
     const bm = dataUrl.match(/^data:image\/(png|jpe?g|gif|webp);base64,(.+)$/);
     if (!bm) return sendJSON(res, 400, { error: '仅支持图片' });
     const ext = '.' + bm[1].replace('jpeg', 'jpg');
@@ -261,7 +271,8 @@ async function handleAPI(req, res, pathname) {
   }
 
   if (m && req.method === 'DELETE') {
-    db.prepare('DELETE FROM posts WHERE id = ?').run(Number(m[1]));
+    const info = db.prepare('DELETE FROM posts WHERE id = ?').run(Number(m[1]));
+    if (info.changes === 0) return sendJSON(res, 404, { error: '文章不存在' });
     return sendJSON(res, 200, { ok: true });
   }
 
