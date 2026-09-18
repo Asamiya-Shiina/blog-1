@@ -18,6 +18,24 @@
   </nav>
 </header>
 
+<!-- 首次设置管理员密码 -->
+<div class="login-box" id="setupView" hidden>
+  <div class="login-card">
+    <h1>设置管理员密码</h1>
+    <p class="sub">首次运行,请设置后台管理密码</p>
+    <div class="field">
+      <label for="setupPassInput">新密码</label>
+      <input type="password" id="setupPassInput" autocomplete="new-password" placeholder="至少 6 位">
+    </div>
+    <div class="field">
+      <label for="setupPass2Input">确认密码</label>
+      <input type="password" id="setupPass2Input" autocomplete="new-password" placeholder="再次输入">
+    </div>
+    <button class="btn" id="setupBtn">设置并进入</button>
+    <p class="login-err" id="setupErr"></p>
+  </div>
+</div>
+
 <!-- 登录态 -->
 <div class="login-box" id="loginView">
   <div class="login-card">

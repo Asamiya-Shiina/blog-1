@@ -10,9 +10,6 @@ const HOST = process.env.HOST || '127.0.0.1';
 const DB_PATH = process.env.DB_PATH || path.join(dir, 'blog.db');
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(dir, 'uploads');
 
-// 后台默认密码(首次启动写入 DB 哈希)。想改密码,改这里后删除 blog.db 再重启。
-const DEFAULT_ADMIN_PASSWORD = 'muxi123';
-
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 const db = new DatabaseSync(DB_PATH);
 db.exec(`
@@ -63,10 +60,6 @@ function verifyPassword(pw) {
   const ok = a.length === b.length && crypto.timingSafeEqual(a, b);
   if (ok) setSetting('admin_password_hash', scryptHash(pw));
   return ok;
-}
-if (!getSetting('admin_password_hash')) {
-  setSetting('admin_password_hash', scryptHash(DEFAULT_ADMIN_PASSWORD));
-  console.log(`[init] 已写入后台默认密码: ${DEFAULT_ADMIN_PASSWORD}`);
 }
 
 // 登录失败限流:每 IP 记录失败次数,超限后锁 10 分钟,防暴力破解
@@ -217,7 +210,28 @@ async function handleAPI(req, res, pathname) {
   }
 
   if (pathname === '/api/me' && req.method === 'GET') {
-    return sendJSON(res, 200, { loggedIn: !!requireAuth(req) });
+    return sendJSON(res, 200, {
+      loggedIn: !!requireAuth(req),
+      needsSetup: !getSetting('admin_password_hash'), // 尚未设置管理员密码则引导进入设置页
+    });
+  }
+
+  // 首次设置管理员密码:仅当尚无密码时允许(公开,不需登录),一设即成登录态
+  if (pathname === '/api/setup' && req.method === 'POST') {
+    if (getSetting('admin_password_hash')) return sendJSON(res, 409, { error: '管理员密码已设置' });
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { return sendJSON(res, 400, { error: 'bad json' }); }
+    const pw = (body && body.password) || '';
+    if (pw.length < 6) return sendJSON(res, 400, { error: '密码至少 6 位' });
+    setSetting('admin_password_hash', scryptHash(pw));
+    const token = crypto.randomBytes(24).toString('hex');
+    sessions.set(token, { createdAt: Date.now() });
+    res.writeHead(200, {
+      'Content-Type': MIME['.json'],
+      'Set-Cookie': 'blog_token=' + token + '; HttpOnly; Path=/; SameSite=Strict; Max-Age=604800',
+    });
+    res.end(JSON.stringify({ ok: true }));
+    return;
   }
 
   if (!requireAuth(req)) return sendJSON(res, 401, { error: '未登录' });
@@ -301,5 +315,5 @@ http.createServer((req, res) => {
 }).listen(PORT, HOST, () => {
   console.log(`Ciallo～ 博客运行中 →  http://${HOST}:${PORT}`);
   console.log(`后台管理 →  http://${HOST}:${PORT}/admin.html`);
-  console.log(`后台默认密码 →  ${DEFAULT_ADMIN_PASSWORD}(可改源码顶部常量)`);
+  if (!getSetting('admin_password_hash')) console.log(`尚未设置管理员密码,首次访问后台将引导设置`);
 });

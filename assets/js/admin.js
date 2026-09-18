@@ -7,6 +7,12 @@
   const loginBtn = $('loginBtn');
   const loginErr = $('loginErr');
 
+  const setupView = $('setupView');
+  const setupPassInput = $('setupPassInput');
+  const setupPass2Input = $('setupPass2Input');
+  const setupBtn = $('setupBtn');
+  const setupErr = $('setupErr');
+
   const editorCard = $('editorCard');
   const editorTitle = $('editorTitle');
   const titleInput = $('titleInput');
@@ -38,8 +44,9 @@
     body: JSON.stringify(obj),
   });
 
-  function showLogin() { loginView.hidden = false; adminView.hidden = true; }
-  function showAdmin() { loginView.hidden = true; adminView.hidden = false; }
+  function showSetup() { setupView.hidden = false; loginView.hidden = true; adminView.hidden = true; }
+  function showLogin() { setupView.hidden = true; loginView.hidden = false; adminView.hidden = true; }
+  function showAdmin() { setupView.hidden = true; loginView.hidden = true; adminView.hidden = false; }
 
   async function loadPosts() {
     const posts = await api('/api/posts');
@@ -142,6 +149,25 @@
   });
   passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn.click(); });
 
+  setupBtn.addEventListener('click', async () => {
+    setupErr.textContent = '';
+    const p1 = setupPassInput.value;
+    const p2 = setupPass2Input.value;
+    if (p1.length < 6) { setupErr.textContent = '密码至少 6 位'; return; }
+    if (p1 !== p2) { setupErr.textContent = '两次输入的密码不一致'; return; }
+    try {
+      await api('/api/setup', jsonOpts({ password: p1 }));
+      setupPassInput.value = setupPass2Input.value = '';
+      showAdmin();
+      loadPosts();
+    } catch (e) {
+      setupErr.textContent = e.message || '设置失败';
+    }
+  });
+  [setupPassInput, setupPass2Input].forEach((el) =>
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') setupBtn.click(); })
+  );
+
   logoutBtn.addEventListener('click', async () => {
     await api('/api/logout', { method: 'POST' });
     closeEditor();
@@ -197,7 +223,9 @@
   (async () => {
     try {
       const me = await api('/api/me');
-      if (me.loggedIn) { showAdmin(); await loadPosts(); } else { showLogin(); }
+      if (me.loggedIn) { showAdmin(); await loadPosts(); }
+      else if (me.needsSetup) { showSetup(); }
+      else { showLogin(); }
     } catch {
       showLogin();
     }
