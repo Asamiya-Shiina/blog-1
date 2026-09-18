@@ -5,13 +5,16 @@ const crypto = require('crypto');
 const { DatabaseSync } = require('node:sqlite');
 
 const dir = __dirname;
-const PORT = 8080;
-const HOST = '127.0.0.1';
+const PORT = Number(process.env.PORT || 8080);
+const HOST = process.env.HOST || '127.0.0.1';
+const DB_PATH = process.env.DB_PATH || path.join(dir, 'blog.db');
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(dir, 'uploads');
 
 // 后台默认密码(首次启动写入 DB 哈希)。想改密码,改这里后删除 blog.db 再重启。
 const DEFAULT_ADMIN_PASSWORD = 'muxi123';
 
-const db = new DatabaseSync(path.join(dir, 'blog.db'));
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+const db = new DatabaseSync(DB_PATH);
 db.exec(`
   CREATE TABLE IF NOT EXISTS posts (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,9 +148,11 @@ function serveStatic(req, res, pathname) {
   try { p = decodeURIComponent(pathname); } catch { res.writeHead(400); res.end('Bad request'); return; }
   if (p.includes('\0')) { res.writeHead(400); res.end('Bad request'); return; } // 拒绝 NUL,防同步抛异常崩溃
   if (p === '/') p = '/index.html';
-  const file = path.normalize(path.join(dir, p));
+  let root = dir;
+  if (p.startsWith('/uploads/')) { root = UPLOAD_DIR; p = p.slice('/uploads'.length); } // 上传文件从 UPLOAD_DIR 提供
+  const file = path.normalize(path.join(root, p));
   // 精确判定边界,防兄弟目录前缀绕过(如 dir 是 "...(2)" 时误放行 "...(2)x"...)
-  if (!(file === dir || file.startsWith(dir + path.sep))) { res.writeHead(403); res.end('Forbidden'); return; }
+  if (!(file === root || file.startsWith(root + path.sep))) { res.writeHead(403); res.end('Forbidden'); return; }
   try {
     fs.readFile(file, (err, data) => {
       if (err) { res.writeHead(404); res.end('Not found'); return; }
@@ -229,9 +234,9 @@ async function handleAPI(req, res, pathname) {
     // 校验文件头魔数,拒绝"披着 png 外衣的任意内容"(如伪装成图片的 HTML/SVG 等)
     if (!sniffImage(ext, buf)) return sendJSON(res, 400, { error: '文件内容不是有效图片' });
     const name = Date.now() + '-' + crypto.randomBytes(6).toString('hex') + ext;
-    const file = path.join(dir, 'uploads', name);
-    if (!file.startsWith(path.join(dir, 'uploads') + path.sep)) return sendJSON(res, 403, { error: 'forbidden' });
-    fs.mkdirSync(path.join(dir, 'uploads'), { recursive: true });
+    const file = path.join(UPLOAD_DIR, name);
+    if (!file.startsWith(UPLOAD_DIR + path.sep)) return sendJSON(res, 403, { error: 'forbidden' });
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
     fs.writeFileSync(file, buf);
     return sendJSON(res, 200, { url: '/uploads/' + name });
   }

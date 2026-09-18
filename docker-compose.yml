@@ -1,0 +1,15 @@
+services:
+  blog:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blog
+    restart: unless-stopped
+    ports:
+      - "${BLOG_PORT:-8080}:8080"
+    volumes:
+      # 命名卷持久化数据库与上传文件,容器重建/升级不丢数据
+      - blog-data:/data
+
+volumes:
+  blog-data:
