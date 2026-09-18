@@ -9,8 +9,7 @@ COPY package.json* ./
 
 COPY index.html post.html profile.html admin.html ./
 COPY assets/ ./assets/
-# 音乐文件较大且可忽略,若你部署时不想打进镜像,可取消下一行注释
-# COPY music/ ./music/
+COPY music/ ./music/
 COPY server.js ./
 
 EXPOSE 8080
