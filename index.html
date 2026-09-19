@@ -26,6 +26,7 @@
         <a href="#search">搜索</a>
       </div>
       <a class="login-entry" href="admin.html">登录 ✦</a>
+      <a class="photo-upload-entry" id="photoUploadBtn">上传 ✦</a>
     </div>
   </nav>
 </header>
@@ -38,6 +39,14 @@
       <div class="hero-eyebrow">Ciallo～(∠・ω&lt; )⌒☆</div>
       <h1>你好，我是<span class="name">沐玺</span></h1>
       <p>目前没想好写什么</p>
+    </section>
+
+    <!-- 相册:hero 下方的照片墙,图片存 photo/ 文件夹,右上角可上传 -->
+    <section class="album" id="photos">
+      <h2 class="album-title">📷 相册</h2>
+      <span class="album-status" id="albumStatus"></span>
+      <input type="file" id="photoFileInput" accept="image/*" multiple hidden>
+      <div class="album-grid" id="albumGrid"></div>
     </section>
 
     <section id="posts">
@@ -105,19 +114,25 @@
 
 <script src="assets/js/player.js"></script>
 <script src="assets/js/main.js"></script>
+<script src="assets/js/album.js"></script>
 <script>
 (async function () {
   const wrap = document.getElementById('posts');
+  function showEmpty(msg) {
+    wrap.textContent = '';
+    const p = document.createElement('p');
+    p.className = 'empty';
+    p.textContent = msg;
+    wrap.appendChild(p);
+  }
+  wrap.textContent = ''; // 一进来就清掉静态「加载中…」占位,避免任何情况下残留
   try {
     const res = await fetch('/api/posts');
     if (!res.ok) throw new Error('http ' + res.status);
     const posts = await res.json();
-    wrap.textContent = '';
-    if (!posts.length) {
-      const p = document.createElement('p');
-      p.className = 'empty';
-      p.textContent = '暂无文章,敬请期待ヽ(=^･ω･^=)丿';
-      wrap.appendChild(p);
+    // 仅当是真实数组才渲染;空数组/非数组都视为「无内容」空态,绝不走进错误分支
+    if (!Array.isArray(posts) || !posts.length) {
+      showEmpty('暂无文章,敬请期待ヽ(=^･ω･^=)丿');
       return;
     }
     posts.forEach((post) => {

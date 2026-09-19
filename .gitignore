@@ -1,6 +1,7 @@
 node_modules/
 blog.db
 uploads/
+photo/
 server.log
 node-v*.msi
 background/

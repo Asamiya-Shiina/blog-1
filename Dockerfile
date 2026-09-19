@@ -14,11 +14,12 @@ COPY server.js ./
 
 EXPOSE 8080
 
-# 生产默认:监听所有网卡、数据库与上传目录放 /data(由 compose 的命名卷持久化)
+# 生产默认:监听所有网卡,数据库与上传/相册目录放 /data(由 compose 的命名卷持久化)
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8080 \
     DB_PATH=/data/blog.db \
-    UPLOAD_DIR=/data/uploads
+    UPLOAD_DIR=/data/uploads \
+    PHOTO_DIR=/data/photo
 
 CMD ["node", "server.js"]

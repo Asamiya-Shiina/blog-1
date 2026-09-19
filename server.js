@@ -13,9 +13,14 @@ const dir = __dirname;
 const PORT = Number(process.env.PORT || 8080);
 const HOST = process.env.HOST || '127.0.0.1';
 const DB_PATH = process.env.DB_PATH || path.join(dir, 'blog.db');
-const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(dir, 'uploads');
+// resolve 统一路径分隔符(避免 Windows 下环境变量为 "/" 而 path.join 归一成 "\" 导致
+// startsWith 目录校验误判为越权 forbidden)
+const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || path.join(dir, 'uploads'));
+const PHOTO_DIR = path.resolve(process.env.PHOTO_DIR || path.join(dir, 'photo'));
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+fs.mkdirSync(PHOTO_DIR, { recursive: true });
 const db = new DatabaseSync(DB_PATH);
 db.exec(`
   CREATE TABLE IF NOT EXISTS posts (
@@ -101,14 +106,18 @@ function getCookie(req, name) {
   try { return decodeURIComponent(m[1]); } catch { return null; }
 }
 const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 与登录 cookie 的 Max-Age 一致(604800s)
-function requireAuth(req) {
+// 唯一管理员即站主(muxi)。删除/上传等敏感操作仅对站主开放;将来若加普通账号,isOwner 会拦下对方。
+const OWNER_USERNAME = 'muxi';
+function getSession(req) {
   const token = getCookie(req, 'blog_token');
   if (!token) return null;
   const s = sessions.get(token);
   if (!s) return null;
   if (Date.now() - s.createdAt > SESSION_TTL) { sessions.delete(token); return null; } // 服务端强制过期,可吊销
-  return token;
+  return s;
 }
+function requireAuth(req) { return !!getSession(req); }
+function isOwner(req) { const s = getSession(req); return !!s && s.username === OWNER_USERNAME; }
 
 function sendJSON(res, code, obj) {
   const body = JSON.stringify(obj);
@@ -150,6 +159,7 @@ function serveStatic(req, res, pathname) {
   if (p === '/') p = '/index.html';
   let root = dir;
   if (p.startsWith('/uploads/')) { root = UPLOAD_DIR; p = p.slice('/uploads'.length); } // 上传文件从 UPLOAD_DIR 提供
+  else if (p.startsWith('/photo/')) { root = PHOTO_DIR; p = p.slice('/photo'.length); }  // 相册图片从 PHOTO_DIR 提供
   const file = path.normalize(path.join(root, p));
   // 精确判定边界,防兄弟目录前缀绕过(如 dir 是 "...(2)" 时误放行 "...(2)x"...)
 if (!(file === root || file.startsWith(root + path.sep))) { res.writeHead(403); res.end('Forbidden'); return; }
@@ -231,7 +241,7 @@ async function handleAPI(req, res, pathname) {
     }
     if (rec) loginFails.delete(ip);
     const token = crypto.randomBytes(24).toString('hex');
-    sessions.set(token, { createdAt: Date.now() });
+    sessions.set(token, { createdAt: Date.now(), username: OWNER_USERNAME });
     res.writeHead(200, {
       'Content-Type': MIME['.json'],
       'Set-Cookie': 'blog_token=' + token + '; HttpOnly; Path=/; SameSite=Strict; Max-Age=604800',
@@ -252,10 +262,29 @@ async function handleAPI(req, res, pathname) {
   }
 
   if (pathname === '/api/me' && req.method === 'GET') {
+    const s = getSession(req);
     return sendJSON(res, 200, {
-      loggedIn: !!requireAuth(req),
+      loggedIn: !!s,
+      username: s ? s.username : null,
+      canManage: isOwner(req), // 删除/上传仅对站主(muxi)开放
       needsSetup: !getSetting('admin_password_hash'), // 尚未设置管理员密码则引导进入设置页
     });
+  }
+
+  // 相册图片列表(公开):主页展示。按修改时间倒序,新上传的靠前,不限数量。
+  if (pathname === '/api/photos' && req.method === 'GET') {
+    const IMG = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+    let names = [];
+    try { names = fs.readdirSync(PHOTO_DIR); } catch { names = []; }
+    const list = names
+      .filter((n) => IMG.includes(path.extname(n).toLowerCase()))
+      .map((n) => {
+        let mtime = 0;
+        try { mtime = fs.statSync(path.join(PHOTO_DIR, n)).mtimeMs; } catch {}
+        return { name: n, url: '/photo/' + encodeURIComponent(n), mtime };
+      })
+      .sort((a, b) => b.mtime - a.mtime); // 新的在前
+    return sendJSON(res, 200, list);
   }
 
   // 首次设置管理员密码:仅当尚无密码时允许(公开,不需登录),一设即成登录态
@@ -267,7 +296,7 @@ async function handleAPI(req, res, pathname) {
     if (pw.length < 6) return sendJSON(res, 400, { error: '密码至少 6 位' });
     setSetting('admin_password_hash', scryptHash(pw));
     const token = crypto.randomBytes(24).toString('hex');
-    sessions.set(token, { createdAt: Date.now() });
+    sessions.set(token, { createdAt: Date.now(), username: OWNER_USERNAME });
     res.writeHead(200, {
       'Content-Type': MIME['.json'],
       'Set-Cookie': 'blog_token=' + token + '; HttpOnly; Path=/; SameSite=Strict; Max-Age=604800',
@@ -295,6 +324,39 @@ async function handleAPI(req, res, pathname) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
     fs.writeFileSync(file, buf);
     return sendJSON(res, 200, { url: '/uploads/' + name });
+  }
+
+  // 相册上传(仅站主):base64 图片 → photo/。与文章插图(uploads/)独立。
+  if (pathname === '/api/photos' && req.method === 'POST') {
+    if (!isOwner(req)) return sendJSON(res, 403, { error: '仅站主可上传' });
+    let body;
+    try { body = JSON.parse(await readBody(req)); } catch { return sendJSON(res, 400, { error: 'bad json' }); }
+    const dataUrl = String((body && body.data) || '');
+    const bm = dataUrl.match(/^data:image\/(png|jpe?g|gif|webp);base64,(.+)$/);
+    if (!bm) return sendJSON(res, 400, { error: '仅支持图片' });
+    const ext = '.' + bm[1].replace('jpeg', 'jpg');
+    const buf = Buffer.from(bm[2], 'base64');
+    if (!sniffImage(ext, buf)) return sendJSON(res, 400, { error: '文件内容不是有效图片' });
+    const name = Date.now() + '-' + crypto.randomBytes(6).toString('hex') + ext;
+    const file = path.join(PHOTO_DIR, name);
+    if (!file.startsWith(PHOTO_DIR + path.sep)) return sendJSON(res, 403, { error: 'forbidden' });
+    fs.mkdirSync(PHOTO_DIR, { recursive: true });
+    fs.writeFileSync(file, buf);
+    return sendJSON(res, 200, { name, url: '/photo/' + encodeURIComponent(name) });
+  }
+
+  // 相册删除(仅站主):按文件名删除 photo/ 下的图片,防目录穿越。
+  if (pathname === '/api/photos' && req.method === 'DELETE') {
+    if (!isOwner(req)) return sendJSON(res, 403, { error: '仅站主可删除' });
+    const qs = new URL(req.url, 'http://x').searchParams;
+    const raw = String(qs.get('name') || '').trim();
+    if (!raw) return sendJSON(res, 400, { error: '缺少 name 参数' });
+    const name = path.basename(decodeURIComponent(raw)); // 只取文件名,杜绝 ../ 穿越
+    const file = path.join(PHOTO_DIR, name);
+    if (!file.startsWith(PHOTO_DIR + path.sep)) return sendJSON(res, 403, { error: 'forbidden' });
+    return fs.promises.unlink(file)
+      .then(() => sendJSON(res, 200, { ok: true }))
+      .catch(() => sendJSON(res, 404, { error: '图片不存在' }));
   }
 
   function cleanPost(b) {
