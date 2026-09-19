@@ -11,10 +11,43 @@
   const mpCurrent = document.getElementById('mpCurrent');
   const mpDuration = document.getElementById('mpDuration');
   const mpBar = document.getElementById('mpBar');
+  const mpVol = document.getElementById('mpVol');
+  const mpVolBtn = document.getElementById('mpVolBtn');
+  const mpVolume = document.getElementById('mpVolume');
 
   const STORE_KEY = 'muxi_player_state';
+  const VOLUME_KEY = 'muxi_player_volume';
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { saved = {}; }
+
+  // 音量:默认 40%(比满格轻),持久化到 localStorage
+  mpAudio.volume = Number(localStorage.getItem(VOLUME_KEY));
+  if (!(mpAudio.volume >= 0 && mpAudio.volume <= 1)) mpAudio.volume = 0.4;
+  if (mpVolume) mpVolume.value = mpAudio.volume;
+
+  function paintVol() {
+    if (!mpVolume) return;
+    const pct = Math.round(mpAudio.volume * 100);
+    mpVolume.style.background = `linear-gradient(to top, #c0392b 0%, #e67e22 ${pct}%, var(--border) ${pct}%)`;
+    if (mpVolBtn) {
+      mpVolBtn.textContent = mpAudio.volume <= 0 ? '🔇' : (mpAudio.volume < 0.5 ? '🔉' : '🔊');
+    }
+  }
+  paintVol();
+
+  if (mpVolume) {
+    mpVolume.addEventListener('input', () => {
+      mpAudio.volume = Number(mpVolume.value);
+      localStorage.setItem(VOLUME_KEY, String(mpAudio.volume));
+      paintVol();
+    });
+  }
+  if (mpVolBtn && mpVol) {
+    mpVolBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      mpVol.classList.toggle('open');
+    });
+  }
 
   function save() {
     try {

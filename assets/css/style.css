@@ -382,6 +382,65 @@ header.site-header {
 }
 .mp-btn:hover { transform: scale(1.08); }
 
+/* 音量开关:喇叭按钮 + 悬停弹出的垂直滑条 */
+.mp-vol {
+  position: relative;
+  flex: 0 0 auto;
+}
+.mp-vol-btn {
+  width: 40px; height: 40px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: none;
+  background: rgba(192, 57, 43, .12);
+  color: var(--text);
+  font-size: .92rem;
+  cursor: pointer;
+  transition: transform .15s ease, background .15s ease;
+}
+.mp-vol-btn:hover { transform: scale(1.08); background: rgba(192, 57, 43, .22); }
+.mp-vol input[type=range] {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  left: 50%;
+  width: 6px;
+  height: 84px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .2s ease, visibility .2s;
+}
+.mp-vol input[type=range]::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none;
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c0392b, #e67e22);
+  border: 2px solid #fff;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.mp-vol input[type=range]::-moz-range-thumb {
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c0392b, #e67e22);
+  border: 2px solid #fff;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.mp-vol.open input[type=range] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
 @media (max-width: 760px) {
   .mp-inner {
     width: calc(100vw - 32px);
