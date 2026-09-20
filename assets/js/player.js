@@ -20,6 +20,17 @@
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { saved = {}; }
 
+  // 跨页面恢复展开/合并状态:上次展开就保持展开,合并就保持合并
+  if (saved.expanded) player.classList.add('open');
+
+  // 跨页面恢复拖动位置(只在之前拖动过时有 left/top 值;否则走 CSS 默认定位)
+  if (typeof saved.left === 'string' && saved.left && typeof saved.top === 'string' && saved.top) {
+    player.style.left = saved.left;
+    player.style.top = saved.top;
+    player.style.right = 'auto';
+    player.style.bottom = 'auto';
+  }
+
   // 音量:默认 40%(比满格轻),持久化到 localStorage
   mpAudio.volume = Number(localStorage.getItem(VOLUME_KEY));
   if (!(mpAudio.volume >= 0 && mpAudio.volume <= 1)) mpAudio.volume = 0.4;
@@ -53,7 +64,10 @@
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({
         currentTime: mpAudio.currentTime || 0,
-        playing: !mpAudio.paused
+        playing: !mpAudio.paused,
+        expanded: player.classList.contains('open'),
+        left: player.style.left || '',
+        top: player.style.top || '',
       }));
     } catch (e) {}
   }
@@ -132,7 +146,8 @@
     mpToggle.addEventListener('pointerup', () => {
       if (!dragging) return;
       dragging = false;
-      if (!moved) player.classList.toggle('open');
+      if (!moved) { player.classList.toggle('open'); save(); }
+      else { save(); } // 拖完也存位置
     });
   }
 
