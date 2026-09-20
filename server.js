@@ -244,8 +244,12 @@ async function handleAPI(req, res, pathname) {
       return sendJSON(res, 429, { error: '尝试次数过多,请 ' + Math.ceil((rec.until - now) / 1000) + ' 秒后再试' });
     }
     if (!verifyPassword((body && body.password) || '')) {
-      const count = (rec && rec.until > now ? rec.count : 0) + 1; // 超出锁定窗口后重新计数
-      loginFails.set(ip, { count, until: count >= MAX_LOGIN_FAILS ? now + LOGIN_WINDOW : 0 });
+      // 连续失败计数:用 ts 判断是否仍在计次窗口内(间隔超 LOGIN_WINDOW 则重新计),
+      // 累计到 MAX_LOGIN_FAILS 次即锁定 LOGIN_WINDOW。锁定时上面已 429 拦截。
+      const inWindow = rec && rec.ts && (now - rec.ts < LOGIN_WINDOW);
+      const count = (inWindow ? rec.count : 0) + 1;
+      const until = count >= MAX_LOGIN_FAILS ? now + LOGIN_WINDOW : 0;
+      loginFails.set(ip, { count, until, ts: now });
       if (loginFails.size > 10000) loginFails.delete(loginFails.keys().next().value); // 防 Map 无限增长
       return sendJSON(res, 401, { error: '密码错误' });
     }
@@ -361,7 +365,7 @@ async function handleAPI(req, res, pathname) {
     const qs = new URL(req.url, 'http://x').searchParams;
     const raw = String(qs.get('name') || '').trim();
     if (!raw) return sendJSON(res, 400, { error: '缺少 name 参数' });
-    const name = path.basename(decodeURIComponent(raw)); // 只取文件名,杜绝 ../ 穿越
+    const name = path.basename(raw); // qs.get 已做一次 URL 解码,只取文件名杜绝 ../ 穿越,避免二次解码抛 URIError
     const file = path.join(PHOTO_DIR, name);
     if (!file.startsWith(PHOTO_DIR + path.sep)) return sendJSON(res, 403, { error: 'forbidden' });
     return fs.promises.unlink(file)

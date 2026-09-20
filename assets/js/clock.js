@@ -11,8 +11,10 @@
     if (h >= 14 && h < 18) return '下午好 🍵';
     return '晚上好 🌙';
   }
-  var lastGreet = '';
   var pad = function (n) { return String(n).padStart(2, '0'); };
+  // 首次加载直接写成当前问候,避免 t=0 也走淡出→淡入造成首屏闪烁
+  var lastGreet = greeting(new Date().getHours());
+  greet.textContent = lastGreet;
 
   // 问候切换:先淡出,切字后淡入(避免同字重复触发)
   function swapGreet(txt) {

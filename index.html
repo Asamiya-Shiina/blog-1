@@ -222,8 +222,9 @@
       a.append(txt, cnt);
       a.addEventListener('click', (e) => {
         e.preventDefault();
-        // 「全部」恒清空分类;其余再点一次取消,回到全部
+        // 「全部」恒清空分类与标签,真正回到全部;其余再点一次取消该过滤
         activeCat = (label === '全部') ? null : ((activeCat === label) ? null : label);
+        if (label === '全部') activeTag = null;
         refresh();
       });
       li.appendChild(a);

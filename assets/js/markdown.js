@@ -24,7 +24,7 @@
   // URL 协议白名单:仅允许相对路径、锚点与 http/https/mailto,拦截 javascript: 等危险协议。
   function safeUrl(u) {
     u = u.trim();
-    if (/^(https?:|mailto:|#|\/|\.\/|\.\.\/)/i.test(u)) return u;
+    if (/^(https?:|mailto:|#|\/(?!\/)|\.\/|\.\.\/)/i.test(u)) return u;
     return null;
   }
 
