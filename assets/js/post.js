@@ -25,6 +25,32 @@
   document.title = post.title + ' · Ciallo～(∠・ω< )⌒☆';
   host.textContent = '';
 
+  // --- SEO:文章页动态补全描述/OG/结构化数据,不影响布局 ---
+  function setMeta(attr, key, val) {
+    const el = document.querySelector('meta[' + attr + '="' + key + '"]');
+    if (el) el.setAttribute('content', val);
+  }
+  const desc = (post.excerpt || post.content || '').slice(0, 150);
+  setMeta('name', 'description', desc);
+  setMeta('property', 'og:title', post.title);
+  setMeta('property', 'og:description', desc);
+  setMeta('name', 'twitter:title', post.title);
+  setMeta('name', 'twitter:description', desc);
+  const ld = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    'headline': post.title,
+    'description': desc,
+    'author': { '@type': 'Person', 'name': '沐玺' },
+    'datePublished': post.created_at,
+    'keywords': post.tag || undefined,
+    'inLanguage': 'zh-CN',
+  };
+  const sc = document.createElement('script');
+  sc.type = 'application/ld+json';
+  sc.textContent = JSON.stringify(ld);
+  document.head.appendChild(sc);
+
   const back = document.createElement('a');
   back.className = 'post-back';
   back.href = 'index.html';
