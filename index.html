@@ -253,6 +253,13 @@
   });
 })();
 
+// 后退(bfcache)还原时清掉水波遮罩残留,否则全屏 ripple 永久挡住画面
+window.addEventListener('pageshow', (e) => {
+  if (!e.persisted) return;
+  document.body.classList.remove('profile-reveal');
+  document.body.querySelectorAll('.is-hiding').forEach((el) => el.classList.remove('is-hiding'));
+});
+
 // 登录后右上角「登录」替换为「文章」:登录态(canManage)显示文章按钮并隐藏登录按钮
 (function () {
   const login = document.querySelector('.login-entry');
