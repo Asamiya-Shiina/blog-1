@@ -84,23 +84,18 @@
   if (!back || !ripple) return;
   back.addEventListener('click', (e) => {
     e.preventDefault();
-    const r = back.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    ripple.style.setProperty('--cx', cx + 'px');
-    ripple.style.setProperty('--cy', cy + 'px');
+    // 直接 inline clip-path + 强制 reflow,绕开 CSS 变量 circle() 过渡插值偏移
+    const cx = e.clientX, cy = e.clientY;
+    ripple.style.transition = 'none';
+    ripple.style.clipPath = 'circle(0% at ' + cx + 'px ' + cy + 'px)';
+    void ripple.offsetWidth;
+    ripple.style.transition = 'clip-path .78s cubic-bezier(.65, 0, .35, 1)';
+    ripple.style.clipPath = 'circle(150% at ' + cx + 'px ' + cy + 'px)';
     document.body.classList.add('profile-reveal');
     back.classList.add('is-hiding');
     setTimeout(() => { window.location.href = back.getAttribute('href'); }, 750);
   });
 })();
-
-// 后退(bfcache)还原时清掉水波遮罩残留,否则全屏 ripple 永久挡住画面
-window.addEventListener('pageshow', (e) => {
-  if (!e.persisted) return;
-  document.body.classList.remove('profile-reveal');
-  document.body.querySelectorAll('.is-hiding').forEach((el) => el.classList.remove('is-hiding'));
-});
 </script>
 </body>
 </html>

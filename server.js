@@ -203,7 +203,12 @@ if (!(file === root || file.startsWith(root + path.sep))) { res.writeHead(403); 
     // 其余文件简单 readFile(NUL 已在上面拒绝,不会同步抛异常)
     fs.readFile(file, (err2, data) => {
       if (err2) { res.writeHead(404); res.end('Not found'); return; }
-      res.writeHead(200, { 'Content-Type': type });
+      // HTML 禁 bfcache(浏览器后退按钮走完整重载,避免水波遮罩残留);
+      // JS 禁浏览器缓存,确保 main.js / admin.js 等改动生效,水波圆心能及时跟随新代码。
+      const headers = { 'Content-Type': type };
+      if (ext === '.html' || ext === '.htm') headers['Cache-Control'] = 'no-store';
+      else if (ext === '.js') headers['Cache-Control'] = 'no-store';
+      res.writeHead(200, headers);
       res.end(data);
     });
   });

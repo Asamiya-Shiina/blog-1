@@ -14,12 +14,15 @@ const hero = document.querySelector('.hero');
 const ripple = document.getElementById('ripple');
 
 if (hero && ripple) {
-  hero.addEventListener('click', () => {
-    const r = hero.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    ripple.style.setProperty('--cx', cx + 'px');
-    ripple.style.setProperty('--cy', cy + 'px');
+  hero.addEventListener('pointerdown', (e) => {
+    // 圆心 = 鼠标事件坐标。直接写 inline clip-path + 强制 reflow,
+    // 绕开 CSS 变量 circle() 在过渡中对 at 位置的插值偏移。
+    const cx = e.clientX, cy = e.clientY;
+    ripple.style.transition = 'none';
+    ripple.style.clipPath = 'circle(0% at ' + cx + 'px ' + cy + 'px)';
+    void ripple.offsetWidth;
+    ripple.style.transition = 'clip-path .78s cubic-bezier(.65, 0, .35, 1)';
+    ripple.style.clipPath = 'circle(150% at ' + cx + 'px ' + cy + 'px)';
     document.body.classList.add('profile-reveal');
     hero.classList.add('is-hiding');
     setTimeout(() => { window.location.href = 'profile.html'; }, 750);
