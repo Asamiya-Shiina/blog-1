@@ -16,7 +16,10 @@
 
 <header class="site-header">
   <nav class="nav">
-    <div class="brand">Ciallo～(∠・ω&lt; )⌒☆</div>
+    <div class="brand brand-clock">
+      <span class="bc-greet" id="bcGreet">早上好</span>
+      <span class="bc-time" id="bcTime">00:00:00</span>
+    </div>
     <div class="nav-right">
       <button class="menu-toggle" id="menuToggle" aria-label="打开菜单">☰</button>
       <div class="menu" id="menu">
@@ -72,13 +75,7 @@
 
     <div class="widget" id="search">
       <h3>热门标签</h3>
-      <ul>
-        <li><a href="#"># CSS</a></li>
-        <li><a href="#"># JavaScript</a></li>
-        <li><a href="#"># 设计</a></li>
-        <li><a href="#"># 效率</a></li>
-        <li><a href="#"># 远足</a></li>
-      </ul>
+      <div class="tag-cloud" id="tagList">加载中…</div>
     </div>
   </aside>
 </main>
@@ -115,15 +112,21 @@
 </div>
 
 <script src="assets/js/player.js"></script>
+<script src="assets/js/clock.js"></script>
 <script src="assets/js/main.js"></script>
 <script src="assets/js/album.js"></script>
 <script>
 (async function () {
   const wrap = document.getElementById('posts');
   const catList = document.getElementById('categoryList');
+  const tagList = document.getElementById('tagList');
   let posts = [];
   let activeCat = null;
+  let activeTag = null;
   let CATEGORIES = [];
+
+  // 取一篇文章的所有标签
+  function postTags(p) { return (p.tags || '').split(/[,，、\s]+/).filter(Boolean); }
 
   function showEmpty(msg) {
     wrap.textContent = '';
@@ -133,11 +136,28 @@
     wrap.appendChild(p);
   }
 
-  // 按当前 activeCat 渲染文章列表;activeCat===null 展示全部
+  // 按当前 activeCat/activeTag 过滤并渲染;两者都为空则展示全部
+  function filtered() {
+    if (!activeCat && !activeTag) return posts;
+    return posts.filter((p) =>
+      (!activeCat || (p.tag || '未分类') === activeCat) &&
+      (!activeTag || postTags(p).indexOf(activeTag) >= 0)
+    );
+  }
+  function refresh() {
+    renderPosts(filtered());
+    renderCategories();
+    renderTags();
+  }
+
+  // 渲染文章列表
   function renderPosts(list) {
     wrap.textContent = '';
     if (!Array.isArray(list) || !list.length) {
-      showEmpty(activeCat ? '「' + activeCat + '」还没有文章,先写一篇吧ヽ(=^･ω･^=)丿' : '暂无文章,敬请期待ヽ(=^･ω･^=)丿');
+      const why = activeCat && activeTag
+        ? '「' + activeCat + '」且含「#' + activeTag + '」的'
+        : (activeCat ? '「' + activeCat + '」' : (activeTag ? '含「#' + activeTag + '」' : ''));
+      showEmpty((why || '暂无') + '文章还没找到,再挑挑别的吧ヽ(=^･ω･^=)丿');
       return;
     }
     list.forEach((post) => {
@@ -202,10 +222,9 @@
       a.append(txt, cnt);
       a.addEventListener('click', (e) => {
         e.preventDefault();
-        activeCat = (activeCat === label) ? null : label; // 再点一次取消过滤,回到全部
-        const list = activeCat ? posts.filter((p) => (p.tag || '未分类') === label) : posts;
-        renderPosts(list);
-        renderCategories();
+        // 「全部」恒清空分类;其余再点一次取消,回到全部
+        activeCat = (label === '全部') ? null : ((activeCat === label) ? null : label);
+        refresh();
       });
       li.appendChild(a);
       catList.appendChild(li);
@@ -213,6 +232,31 @@
 
     addItem('全部', posts.length);
     cats.forEach((c) => addItem(c, counts[c] || 0));
+  }
+
+  // 热门标签云:抽取所有文章标签,按出现次数降序,点击按标签过滤
+  function renderTags() {
+    if (!tagList) return;
+    tagList.textContent = '';
+
+    const counts = {};
+    posts.forEach((p) => postTags(p).forEach((t) => { counts[t] = (counts[t] || 0) + 1; }));
+    const tags = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b, 'zh')); // 热门在前
+    if (!tags.length) {
+      tagList.textContent = '还没有标签 ✧';
+      return;
+    }
+    tags.forEach((t) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'tag-chip' + (activeTag === t ? ' active' : '');
+      chip.textContent = '#' + t + ' ' + counts[t];
+      chip.addEventListener('click', () => {
+        activeTag = (activeTag === t) ? null : t; // 再点一次取消
+        refresh();
+      });
+      tagList.appendChild(chip);
+    });
   }
 
   wrap.textContent = ''; // 一进来就清掉静态「加载中…」占位,避免任何情况下残留
@@ -228,8 +272,7 @@
     const c = await (await fetch('/api/categories')).json();
     CATEGORIES = (c && Array.isArray(c.categories)) ? c.categories : CATEGORIES;
   } catch {}
-  renderCategories();
-  renderPosts(posts);
+  refresh();
 })();
 </script>
 <script>

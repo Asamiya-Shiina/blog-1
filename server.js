@@ -28,6 +28,7 @@ db.exec(`
     title      TEXT NOT NULL,
     excerpt    TEXT NOT NULL DEFAULT '',
     tag        TEXT NOT NULL DEFAULT '',
+    tags       TEXT NOT NULL DEFAULT '',
     content    TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
@@ -37,6 +38,8 @@ db.exec(`
     value TEXT NOT NULL
   );
 `);
+// 老库迁移:如果 posts 尚无 tags 列(多标签,逗号分隔),补上;已存在则跳过
+try { db.exec("ALTER TABLE posts ADD COLUMN tags TEXT NOT NULL DEFAULT ''"); } catch (e) { /* already has tags */ }
 
 function getSetting(key) {
   const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
@@ -213,7 +216,7 @@ if (!(file === root || file.startsWith(root + path.sep))) { res.writeHead(403); 
 async function handleAPI(req, res, pathname) {
   if (pathname === '/api/posts' && req.method === 'GET') {
     const rows = db.prepare(
-      'SELECT id, title, excerpt, tag, created_at, updated_at FROM posts ORDER BY created_at DESC, id DESC'
+      'SELECT id, title, excerpt, tag, tags, created_at, updated_at FROM posts ORDER BY created_at DESC, id DESC'
     ).all();
     return sendJSON(res, 200, rows);
   }
@@ -372,8 +375,15 @@ async function handleAPI(req, res, pathname) {
     const tag = String(p.tag || '').trim().slice(0, 50);
     const excerpt = String(p.excerpt || '').trim().slice(0, 500);
     const content = String(p.content || '');
+    // 多标签:逗号(中英文均可)/空格/顿号分隔,去空白去重,最多 12 个,每标签限 30 字
+    const seen = new Set();
+    const list = String(p.tags || '')
+      .split(/[,，、\s]+/)
+      .map((s) => s.trim().slice(0, 30))
+      .filter((s) => s && !seen.has(s) && seen.add(s));
+    const tags = list.slice(0, 12).join(',');
     if (!title) return null;
-    return { title, tag, excerpt, content };
+    return { title, tag, excerpt, content, tags };
   }
 
   if (pathname === '/api/posts' && req.method === 'POST') {
@@ -381,8 +391,8 @@ async function handleAPI(req, res, pathname) {
     try { body = JSON.parse(await readBody(req)); } catch { return sendJSON(res, 400, { error: 'bad json' }); }
     const p = cleanPost(body);
     if (!p) return sendJSON(res, 400, { error: '标题不能为空' });
-    const info = db.prepare('INSERT INTO posts (title, excerpt, tag, content) VALUES (?, ?, ?, ?)')
-      .run(p.title, p.excerpt, p.tag, p.content);
+    const info = db.prepare('INSERT INTO posts (title, excerpt, tag, tags, content) VALUES (?, ?, ?, ?, ?)')
+      .run(p.title, p.excerpt, p.tag, p.tags, p.content);
     return sendJSON(res, 200, { ok: true, id: Number(info.lastInsertRowid) });
   }
 
@@ -394,8 +404,8 @@ async function handleAPI(req, res, pathname) {
     const p = cleanPost(body);
     if (!p) return sendJSON(res, 400, { error: '标题不能为空' });
     const info = db.prepare(
-      "UPDATE posts SET title=?, excerpt=?, tag=?, content=?, updated_at=datetime('now','localtime') WHERE id=?"
-    ).run(p.title, p.excerpt, p.tag, p.content, id);
+      "UPDATE posts SET title=?, excerpt=?, tag=?, tags=?, content=?, updated_at=datetime('now','localtime') WHERE id=?"
+    ).run(p.title, p.excerpt, p.tag, p.tags, p.content, id);
     if (info.changes === 0) return sendJSON(res, 404, { error: '文章不存在' });
     return sendJSON(res, 200, { ok: true });
   }
