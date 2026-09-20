@@ -13,7 +13,10 @@
 
 <header class="site-header">
   <nav class="nav">
-    <div class="brand">Ciallo～(∠・ω&lt; )⌒☆</div>
+    <div class="brand brand-clock">
+      <span class="bc-greet" id="bcGreet">早上好</span>
+      <span class="bc-time" id="bcTime">00:00:00</span>
+    </div>
     <a class="back-link" href="index.html">← 返回首页</a>
   </nav>
 </header>
@@ -76,6 +79,7 @@
 <div class="ripple" id="ripple"></div>
 
 <script src="assets/js/player.js"></script>
+<script src="assets/js/clock.js"></script>
 <script>
 (function () {
   // 与 index.html 首页 hero 同一套水波扩散动画，作用到右上角「返回首页」

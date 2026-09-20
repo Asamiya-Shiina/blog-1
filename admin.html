@@ -14,7 +14,10 @@
 
 <header class="site-header">
   <nav class="nav">
-    <div class="brand">Ciallo～(∠・ω< )⌒☆</div>
+    <div class="brand brand-clock">
+      <span class="bc-greet" id="bcGreet">早上好</span>
+      <span class="bc-time" id="bcTime">00:00:00</span>
+    </div>
     <div class="menu">
       <a href="index.html">← 返回首页</a>
     </div>
@@ -86,6 +89,10 @@
       <select id="tagInput"></select>
     </div>
     <div class="field">
+      <label for="tagsInput">标签</label>
+      <input id="tagsInput" maxlength="400" placeholder="多个用逗号分隔,如:前端, Vue, 随笔">
+    </div>
+    <div class="field">
       <label for="excerptInput">摘要</label>
       <input id="excerptInput" maxlength="500" placeholder="一句话摘要(首页卡片显示)">
     </div>
@@ -130,6 +137,7 @@
 <div class="ripple" id="ripple"></div>
 
 <script src="assets/js/player.js"></script>
+<script src="assets/js/clock.js"></script>
 <script>
 (function () {
   // 与首页 hero / 简介返回同一套水波动画,作用到 admin 顶部「返回首页」

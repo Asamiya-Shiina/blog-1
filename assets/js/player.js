@@ -31,8 +31,10 @@
     player.style.bottom = 'auto';
   }
 
-  // 音量:默认 40%(比满格轻),持久化到 localStorage
-  mpAudio.volume = Number(localStorage.getItem(VOLUME_KEY));
+  // 音量:默认 40%(比满格轻),持久化到 localStorage;未存过(首次)才用默认值,
+  // 否则 Number(null)=0 会把默认静音,与「40%」的设计矛盾
+  const storedVol = localStorage.getItem(VOLUME_KEY);
+  mpAudio.volume = storedVol === null ? 0.4 : Number(storedVol);
   if (!(mpAudio.volume >= 0 && mpAudio.volume <= 1)) mpAudio.volume = 0.4;
   if (mpVolume) mpVolume.value = mpAudio.volume;
 
@@ -155,10 +157,11 @@
   document.addEventListener('pagehide', save);
   document.addEventListener('beforeunload', save);
 
-  // 首次点击任意处解锁续播(浏览器自动播放策略需一次手势)
+  // 首次点击任意处解锁续播(浏览器自动播放策略需一次手势)。
+  // 仅当上次离开时在播放才恢复,否则不应擅自开播。
   const unlock = () => {
     document.removeEventListener('click', unlock);
-    if (mpAudio.paused) mpAudio.play().catch(() => {});
+    if (saved.playing && mpAudio.paused) mpAudio.play().catch(() => {});
   };
   document.addEventListener('click', unlock);
 
