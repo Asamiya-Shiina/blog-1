@@ -207,7 +207,7 @@ header.site-header {
 
 /* ============ Posts ============ */
 .post {
-  background: var(--surface);
+  background: linear-gradient(135deg, rgba(255,250,243,.74), rgba(255,244,250,.68));
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 24px 26px;
@@ -246,7 +246,7 @@ header.site-header {
   top: 84px;
 }
 .widget {
-  background: var(--surface);
+  background: linear-gradient(135deg, rgba(255,250,243,.74), rgba(255,244,250,.68));
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 20px;
