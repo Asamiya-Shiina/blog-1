@@ -1,0 +1,18 @@
+/* ============ 圆形水波扩散过渡 ============
+   页面放一个 `<div class="ripple" id="ripple"></div>`,
+   任意元素加上 `data-ripple` 属性,点击时由 assets/js/ripple.js 触发:
+   从鼠标位置开始扩散一圈覆盖全屏的渐变,稍后跳转元素的 href。
+*/
+.ripple {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  background: linear-gradient(135deg, #fff5ec, #ffe9f2 55%, #eaf6ff);
+  clip-path: circle(0% at var(--cx, 50%) var(--cy, 50%));
+  transition: clip-path .78s cubic-bezier(.65, 0, .35, 1);
+  pointer-events: none;
+}
+body.profile-reveal .ripple {
+  clip-path: circle(150% at var(--cx, 50%) var(--cy, 50%));
+  pointer-events: auto;
+}
