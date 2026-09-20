@@ -508,23 +508,10 @@ header.site-header {
   font-weight: 600;
 }
 
-/* ============ 进入个人简介：圆形水波扩散过渡 ============ */
+/* ============ 进入个人简介：圆形水波扩散过渡 ============
+   样式已抽到 assets/css/ripple.css,这里只保留 .hero 的退场过渡(不依赖 ripple 层)。 */
 .hero { cursor: pointer; transition: opacity .45s ease, transform .45s ease; }
 .hero.is-hiding { opacity: 0; transform: scale(.92); pointer-events: none; }
-
-.ripple {
-  position: fixed;
-  inset: 0;
-  z-index: 4000;
-  background: linear-gradient(135deg, #fff5ec, #ffe9f2 55%, #eaf6ff);
-  clip-path: circle(0% at var(--cx, 50%) var(--cy, 50%));
-  transition: clip-path .78s cubic-bezier(.65, 0, .35, 1);
-  pointer-events: none;
-}
-body.profile-reveal .ripple {
-  clip-path: circle(150% at var(--cx, 50%) var(--cy, 50%));
-  pointer-events: auto;
-}
 
 /* 个人简介页（profile.html） */
 .profile {

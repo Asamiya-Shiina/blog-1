@@ -22,21 +22,29 @@ blog/
 ├── server.js            # 后端：http 静态服务 + SQLite + JSON API
 ├── assets/              # 全部前端源码（css / js / html 统一收纳于此）
 │   ├── css/
-│   │   ├── style.css    # 前台样式
-│   │   └── admin.css    # 后台样式
+│   │   ├── style.css    # 前台样式（变量 / 布局 / 组件）
+│   │   ├── admin.css    # 后台专属样式
+│   │   └── ripple.css   # 水波过渡层（页面跳转动画）
 │   ├── js/
 │   │   ├── main.js      # 首页交互 / 列表渲染
 │   │   ├── post.js      # 文章详情渲染
 │   │   ├── admin.js     # 后台逻辑（设置密码 / 登录 / 文章 CRUD / 上传）
-│   │   └── markdown.js  # Markdown → HTML 渲染器
+│   │   ├── album.js     # 相册网格 / 上传交互
+│   │   ├── player.js    # 悬浮音乐播放器（跨页持久化）
+│   │   ├── clock.js     # 顶部时钟问候
+│   │   ├── markdown.js  # Markdown → HTML 渲染器
+│   │   └── ripple.js    # 水波过渡通用绑定（data-ripple 元素）
 │   └── html/            # 页面；URL 由 server.js 映射为根级干净地址
 │       ├── index.html   # 首页（文章列表 / Hero / 侧边栏）→ /
 │       ├── post.html    # 文章详情页 → /post.html
 │       ├── profile.html # 个人 Profile 页 → /profile.html
-│       └── admin.html   # 后台管理页 → /admin.html
+│       ├── admin.html   # 后台管理页 → /admin.html
+│       └── 404.html     # 兜底 404 页 → 任何未命中 URL
 ├── music/               # 悬浮播放器的音频
+├── background/          # 全站背景视频
 ├── blog.db              # SQLite 数据库（运行时生成）
 ├── uploads/             # 上传的图片（运行时生成）
+├── photo/               # 相册原图（运行时生成）
 ├── Dockerfile           # 容器镜像（node:24-alpine，内置 node:sqlite）
 └── docker-compose.yml   # 一键部署：命名卷持久化数据库与上传
 ```

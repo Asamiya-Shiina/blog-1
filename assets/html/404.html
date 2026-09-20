@@ -6,6 +6,7 @@
 <title>404 · 页面去旅行了 Ciallo～(∠・ω< )⌒☆</title>
 <!-- 用绝对路径:404 可能在任意深层 URL 兜底展示,相对路径会算错位置 -->
 <link rel="stylesheet" href="/assets/css/style.css">
+<link rel="stylesheet" href="/assets/css/ripple.css">
 <style>
   .err-wrap {
     min-height: 70vh;
@@ -80,7 +81,7 @@
     <div class="err-code">404</div>
     <p class="err-note">诶，页面好像去旅行了 ✧</p>
     <p class="err-sub">你找的地址不存在，或已经被移动了。</p>
-    <a class="err-home" id="errHome" href="/">回首页看看</a>
+    <a class="err-home" id="errHome" href="/" data-ripple>回首页看看</a>
   </div>
 </main>
 
@@ -91,25 +92,7 @@
 <!-- 圆形水波过渡层:点击「回首页看看」触发,与主页进入简介用的同一套动画 -->
 <div class="ripple" id="ripple"></div>
 
-<script>
-(function () {
-  const ripple = document.getElementById('ripple');
-  const btn = document.getElementById('errHome');
-  if (!ripple || !btn) return;
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    // 圆心 = 鼠标坐标。inline clip-path + 强制 reflow,绕开 CSS 变量插值偏移
-    const cx = e.clientX, cy = e.clientY;
-    ripple.style.transition = 'none';
-    ripple.style.clipPath = 'circle(0% at ' + cx + 'px ' + cy + 'px)';
-    void ripple.offsetWidth;
-    ripple.style.transition = 'clip-path .78s cubic-bezier(.65, 0, .35, 1)';
-    ripple.style.clipPath = 'circle(150% at ' + cx + 'px ' + cy + 'px)';
-    document.body.classList.add('profile-reveal');
-    setTimeout(() => { window.location.href = btn.getAttribute('href'); }, 750);
-  });
-})();
-</script>
+<script src="/assets/js/ripple.js"></script>
 
 </body>
 </html>

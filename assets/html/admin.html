@@ -10,6 +10,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23c0392b'/%3E%3Cstop offset='1' stop-color='%23e67e22'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='42' fill='url(%23g)'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/css/style.css">
 <link rel="stylesheet" href="assets/css/admin.css">
+<link rel="stylesheet" href="assets/css/ripple.css">
 </head>
 <body>
 
@@ -23,7 +24,7 @@
       <span class="bc-time" id="bcTime">00:00:00</span>
     </div>
     <div class="menu">
-      <a href="index.html">← 返回首页</a>
+      <a href="index.html" data-ripple>← 返回首页</a>
     </div>
   </nav>
 </header>
@@ -142,27 +143,7 @@
 
 <script src="assets/js/player.js"></script>
 <script src="assets/js/clock.js"></script>
-<script>
-(function () {
-  // 与首页 hero / 简介返回同一套水波动画,作用到 admin 顶部「返回首页」
-  const back = document.querySelector('.menu a[href="index.html"]');
-  const ripple = document.getElementById('ripple');
-  if (!back || !ripple) return;
-  back.addEventListener('click', (e) => {
-    e.preventDefault();
-    // 直接 inline clip-path + 强制 reflow,绕开 CSS 变量 circle() 过渡插值偏移
-    const cx = e.clientX, cy = e.clientY;
-    ripple.style.transition = 'none';
-    ripple.style.clipPath = 'circle(0% at ' + cx + 'px ' + cy + 'px)';
-    void ripple.offsetWidth;
-    ripple.style.transition = 'clip-path .78s cubic-bezier(.65, 0, .35, 1)';
-    ripple.style.clipPath = 'circle(150% at ' + cx + 'px ' + cy + 'px)';
-    document.body.classList.add('profile-reveal');
-    back.classList.add('is-hiding');
-    setTimeout(() => { window.location.href = back.getAttribute('href'); }, 750);
-  });
-})();
-</script>
+<script src="assets/js/ripple.js"></script>
 <script src="assets/js/admin.js"></script>
 </body>
 </html>
