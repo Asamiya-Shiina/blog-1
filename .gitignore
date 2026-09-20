@@ -4,4 +4,4 @@ uploads/
 photo/
 server.log
 node-v*.msi
-background/
+# background/
