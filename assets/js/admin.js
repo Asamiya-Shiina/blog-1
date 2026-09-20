@@ -20,6 +20,7 @@
   const editorTitle = $('editorTitle');
   const titleInput = $('titleInput');
   const tagInput = $('tagInput');
+  const tagsInput = $('tagsInput');
   const excerptInput = $('excerptInput');
   const contentInput = $('contentInput');
   const newBtn = $('newBtn');
@@ -139,6 +140,7 @@
     return {
       title: titleInput.value,
       tag: tagInput.value,
+      tags: tagsInput.value,
       excerpt: excerptInput.value,
       content: contentInput.value,
     };
@@ -158,6 +160,7 @@
       tagInput.appendChild(o);
     }
     tagInput.value = p.tag || (tagInput.options[0] ? tagInput.options[0].value : '');
+    tagsInput.value = p.tags || '';
     excerptInput.value = p.excerpt || '';
     contentInput.value = p.content || '';
     openEditor('编辑文章 #' + id);
@@ -180,7 +183,7 @@
       }
     } catch (e) { alert(e.message); return; }
     closeEditor();
-    titleInput.value = excerptInput.value = contentInput.value = '';
+    titleInput.value = tagsInput.value = excerptInput.value = contentInput.value = '';
     resetTagSelect();
     await loadPosts();
   }
@@ -233,7 +236,7 @@
 
   newBtn.addEventListener('click', () => {
     editingId = null;
-    titleInput.value = excerptInput.value = contentInput.value = '';
+    titleInput.value = tagsInput.value = excerptInput.value = contentInput.value = '';
     resetTagSelect();
     openEditor('写新文章');
     titleInput.focus();
