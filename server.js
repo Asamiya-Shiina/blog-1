@@ -159,7 +159,17 @@ function setSecurityHeaders(res) {
 // ---- 静态文件服务 ----
 // HTML 页都放在 assets/html/ 下,但对外仍保持干净 URL(/,/admin.html 等),这里做一层内部映射。
 const HTML_DIR = path.join(dir, 'assets', 'html');
-const HTML_PAGES = new Set(['/index.html', '/admin.html', '/post.html', '/profile.html']);
+const HTML_PAGES = new Set(['/index.html', '/admin.html', '/post.html', '/profile.html', '/404.html']);
+// 找不到文件时兜底返回风格统一的自定义 404 页,比裸文本友好
+function send404(res) {
+  const file = path.join(HTML_DIR, '404.html');
+  fs.readFile(file, (err, data) => {
+    const headers = { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-store' };
+    if (err) { res.writeHead(404, headers); res.end('Not found'); return; }
+    res.writeHead(404, headers);
+    res.end(data);
+  });
+}
 function serveStatic(req, res, pathname) {
   let p;
   try { p = decodeURIComponent(pathname); } catch { res.writeHead(400); res.end('Bad request'); return; }
@@ -175,7 +185,7 @@ if (!(file === root || file.startsWith(root + path.sep))) { res.writeHead(403); 
   const ext = path.extname(file).toLowerCase();
   const type = MIME[ext] || 'application/octet-stream';
   fs.stat(file, (err, stat) => {
-    if (err || !stat.isFile()) { res.writeHead(404); res.end('Not found'); return; }
+    if (err || !stat.isFile()) { send404(res); return; }
     // 媒体文件(mp4/webm/mp3)走流式 + Range,支持断点/进度,是背景视频能播放的前提
     if (ext === '.mp4' || ext === '.webm' || ext === '.mp3') {
       res.setHeader('Accept-Ranges', 'bytes');
@@ -209,7 +219,7 @@ if (!(file === root || file.startsWith(root + path.sep))) { res.writeHead(403); 
     }
     // 其余文件简单 readFile(NUL 已在上面拒绝,不会同步抛异常)
     fs.readFile(file, (err2, data) => {
-      if (err2) { res.writeHead(404); res.end('Not found'); return; }
+      if (err2) { send404(res); return; }
       // HTML 禁 bfcache(浏览器后退按钮走完整重载,避免水波遮罩残留);
       // JS 禁浏览器缓存,确保 main.js / admin.js 等改动生效,水波圆心能及时跟随新代码。
       const headers = { 'Content-Type': type };
