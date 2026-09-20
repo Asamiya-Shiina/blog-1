@@ -7,7 +7,7 @@ COPY package.json* ./
 # 无第三方依赖时跳过安装;若未来加了依赖,取消下行注释并保留 package.json
 # RUN npm install --omit=dev || true
 
-COPY index.html post.html profile.html admin.html ./
+# HTML 页在 assets/html/ 下,随 assets/ 一并拷入,无需单独 COPY
 COPY assets/ ./assets/
 COPY music/ ./music/
 COPY server.js ./

@@ -20,19 +20,20 @@
 ```
 blog/
 ├── server.js            # 后端：http 静态服务 + SQLite + JSON API
-├── index.html           # 首页（文章列表 / Hero / 侧边栏）
-├── post.html            # 文章详情页
-├── profile.html         # 个人 Profile 页
-├── admin.html           # 后台管理页
-├── assets/
+├── assets/              # 全部前端源码（css / js / html 统一收纳于此）
 │   ├── css/
 │   │   ├── style.css    # 前台样式
 │   │   └── admin.css    # 后台样式
-│   └── js/
-│       ├── main.js      # 首页交互 / 列表渲染
-│       ├── post.js      # 文章详情渲染
-│       ├── admin.js     # 后台逻辑（设置密码 / 登录 / 文章 CRUD / 上传）
-│       └── markdown.js  # Markdown → HTML 渲染器
+│   ├── js/
+│   │   ├── main.js      # 首页交互 / 列表渲染
+│   │   ├── post.js      # 文章详情渲染
+│   │   ├── admin.js     # 后台逻辑（设置密码 / 登录 / 文章 CRUD / 上传）
+│   │   └── markdown.js  # Markdown → HTML 渲染器
+│   └── html/            # 页面；URL 由 server.js 映射为根级干净地址
+│       ├── index.html   # 首页（文章列表 / Hero / 侧边栏）→ /
+│       ├── post.html    # 文章详情页 → /post.html
+│       ├── profile.html # 个人 Profile 页 → /profile.html
+│       └── admin.html   # 后台管理页 → /admin.html
 ├── music/               # 悬浮播放器的音频
 ├── blog.db              # SQLite 数据库（运行时生成）
 ├── uploads/             # 上传的图片（运行时生成）
@@ -59,17 +60,22 @@ node server.js
 
 ```bash
 docker compose up -d --build
-# 数据库与上传放在命名卷 blog-data，重建容器不丢数据
 ```
 
-可选环境变量（`server.js` 或 compose 中设置）：
+容器内所有数据集中在 `/data`（数据库 `/data/blog.db`、插图 `/data/uploads`、相册 `/data/photo`），用命名卷 `blog-data` 持久化，重建不丢：
 
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `PORT` | `8080` | 监听端口 |
-| `HOST` | `127.0.0.1` | 监听地址（容器内需 `0.0.0.0`） |
-| `DB_PATH` | `./blog.db` | 数据库文件位置（Docker 中 `/data/blog.db`） |
-| `UPLOAD_DIR` | `./uploads` | 上传图片目录（Docker 中 `/data/uploads`） |
+```yaml
+volumes:
+  - blog-data:/data   # 默认命名卷;想挂宿主目录改成 /绝对/路径/data 即可
+```
+
+默认监听 8080，可用 `BLOG_PORT` 换端口：
+
+```bash
+BLOG_PORT=9090 docker compose up -d --build
+```
+
+常用维护：`docker compose logs -f`（看日志）、`docker compose down`（停止不删数据）、<br>`docker compose down -v`（⚠️ 会删掉所有数据）。
 
 ## API 一览
 

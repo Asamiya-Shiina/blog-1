@@ -157,13 +157,17 @@ function setSecurityHeaders(res) {
 }
 
 // ---- 静态文件服务 ----
+// HTML 页都放在 assets/html/ 下,但对外仍保持干净 URL(/,/admin.html 等),这里做一层内部映射。
+const HTML_DIR = path.join(dir, 'assets', 'html');
+const HTML_PAGES = new Set(['/index.html', '/admin.html', '/post.html', '/profile.html']);
 function serveStatic(req, res, pathname) {
   let p;
   try { p = decodeURIComponent(pathname); } catch { res.writeHead(400); res.end('Bad request'); return; }
   if (p.includes('\0')) { res.writeHead(400); res.end('Bad request'); return; } // 拒绝 NUL,防同步抛异常崩溃
   if (p === '/') p = '/index.html';
   let root = dir;
-  if (p.startsWith('/uploads/')) { root = UPLOAD_DIR; p = p.slice('/uploads'.length); } // 上传文件从 UPLOAD_DIR 提供
+  if (HTML_PAGES.has(p)) { root = HTML_DIR; p = p.slice(1); } // /index.html → index.html(相对 HTML_DIR)
+  else if (p.startsWith('/uploads/')) { root = UPLOAD_DIR; p = p.slice('/uploads'.length); } // 上传文件从 UPLOAD_DIR 提供
   else if (p.startsWith('/photo/')) { root = PHOTO_DIR; p = p.slice('/photo'.length); }  // 相册图片从 PHOTO_DIR 提供
   const file = path.normalize(path.join(root, p));
   // 精确判定边界,防兄弟目录前缀绕过(如 dir 是 "...(2)" 时误放行 "...(2)x"...)
