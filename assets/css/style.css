@@ -235,6 +235,7 @@ header.site-header {
 .widget .about { font-size: .88rem; color: #555; }
 .widget a { color: var(--text); }
 .widget a:hover { color: var(--accent); }
+.widget a.active { color: var(--accent); font-weight: 700; }
 .widget .avatar {
   width: 64px; height: 64px;
   border-radius: 50%;

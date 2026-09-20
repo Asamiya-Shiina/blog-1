@@ -26,6 +26,7 @@
         <a href="#search">搜索</a>
       </div>
       <a class="login-entry" href="admin.html">登录 ✦</a>
+      <a class="article-entry photo-upload-entry" id="articleBtn" href="admin.html" hidden>文章 ✦</a>
       <a class="photo-upload-entry" id="photoUploadBtn">上传 ✦</a>
     </div>
   </nav>
@@ -64,11 +65,8 @@
 
     <div class="widget">
       <h3>文章分类</h3>
-      <ul>
-        <li><a href="#">前端开发 <span class="count">12</span></a></li>
-        <li><a href="#">技术随笔 <span class="count">8</span></a></li>
-        <li><a href="#">生活日常 <span class="count">6</span></a></li>
-        <li><a href="#">读书笔记 <span class="count">4</span></a></li>
+      <ul id="categoryList">
+        <li>加载中…</li>
       </ul>
     </div>
 
@@ -122,6 +120,11 @@
 <script>
 (async function () {
   const wrap = document.getElementById('posts');
+  const catList = document.getElementById('categoryList');
+  let posts = [];
+  let activeCat = null;
+  let CATEGORIES = [];
+
   function showEmpty(msg) {
     wrap.textContent = '';
     const p = document.createElement('p');
@@ -129,17 +132,15 @@
     p.textContent = msg;
     wrap.appendChild(p);
   }
-  wrap.textContent = ''; // 一进来就清掉静态「加载中…」占位,避免任何情况下残留
-  try {
-    const res = await fetch('/api/posts');
-    if (!res.ok) throw new Error('http ' + res.status);
-    const posts = await res.json();
-    // 仅当是真实数组才渲染;空数组/非数组都视为「无内容」空态,绝不走进错误分支
-    if (!Array.isArray(posts) || !posts.length) {
-      showEmpty('暂无文章,敬请期待ヽ(=^･ω･^=)丿');
+
+  // 按当前 activeCat 渲染文章列表;activeCat===null 展示全部
+  function renderPosts(list) {
+    wrap.textContent = '';
+    if (!Array.isArray(list) || !list.length) {
+      showEmpty(activeCat ? '「' + activeCat + '」还没有文章,先写一篇吧ヽ(=^･ω･^=)丿' : '暂无文章,敬请期待ヽ(=^･ω･^=)丿');
       return;
     }
-    posts.forEach((post) => {
+    list.forEach((post) => {
       const art = document.createElement('article');
       art.className = 'post';
 
@@ -172,32 +173,100 @@
       art.append(meta, h2, ex, rm);
       wrap.appendChild(art);
     });
-  } catch (e) {
-    wrap.textContent = '';
-    const p = document.createElement('p');
-    p.className = 'empty';
-    p.textContent = '加载失败,请刷新重试。';
-    wrap.appendChild(p);
   }
+
+  // 侧栏分类:预置分类(来自 /api/categories) + 文章里出现的额外分类,均带真实计数
+  function renderCategories() {
+    if (!catList) return;
+    catList.textContent = '';
+
+    const cats = CATEGORIES.slice();
+    const counts = {};
+    posts.forEach((p) => {
+      const t = p.tag || '未分类';
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    Object.keys(counts).forEach((t) => { if (!cats.includes(t)) cats.push(t); });
+
+    const addItem = (label, count) => {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = '#posts';
+      a.dataset.cat = label;
+      a.className = activeCat === label ? 'active' : '';
+      const txt = document.createElement('span');
+      txt.textContent = label + ' ';
+      const cnt = document.createElement('span');
+      cnt.className = 'count';
+      cnt.textContent = count;
+      a.append(txt, cnt);
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        activeCat = (activeCat === label) ? null : label; // 再点一次取消过滤,回到全部
+        const list = activeCat ? posts.filter((p) => (p.tag || '未分类') === label) : posts;
+        renderPosts(list);
+        renderCategories();
+      });
+      li.appendChild(a);
+      catList.appendChild(li);
+    };
+
+    addItem('全部', posts.length);
+    cats.forEach((c) => addItem(c, counts[c] || 0));
+  }
+
+  wrap.textContent = ''; // 一进来就清掉静态「加载中…」占位,避免任何情况下残留
+  try {
+    const res = await fetch('/api/posts');
+    if (!res.ok) throw new Error('http ' + res.status);
+    posts = await res.json();
+    posts = Array.isArray(posts) ? posts : [];
+  } catch {
+    posts = [];
+  }
+  try {
+    const c = await (await fetch('/api/categories')).json();
+    CATEGORIES = (c && Array.isArray(c.categories)) ? c.categories : CATEGORIES;
+  } catch {}
+  renderCategories();
+  renderPosts(posts);
 })();
 </script>
 <script>
-// 右上角「登录」进后台:套用同一套水波动画
+// 右上角「登录/文章」进后台:套用同一套水波动画
+(function () {
+  const ripple = document.getElementById('ripple');
+  const targets = document.querySelectorAll('.login-entry, .article-entry');
+  if (!targets.length || !ripple) return;
+  targets.forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      ripple.style.setProperty('--cx', cx + 'px');
+      ripple.style.setProperty('--cy', cy + 'px');
+      document.body.classList.add('profile-reveal');
+      el.classList.add('is-hiding');
+      setTimeout(() => { window.location.href = el.getAttribute('href'); }, 750);
+    });
+  });
+})();
+
+// 登录后右上角「登录」替换为「文章」:登录态(canManage)显示文章按钮并隐藏登录按钮
 (function () {
   const login = document.querySelector('.login-entry');
-  const ripple = document.getElementById('ripple');
-  if (!login || !ripple) return;
-  login.addEventListener('click', (e) => {
-    e.preventDefault();
-    const r = login.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    ripple.style.setProperty('--cx', cx + 'px');
-    ripple.style.setProperty('--cy', cy + 'px');
-    document.body.classList.add('profile-reveal');
-    login.classList.add('is-hiding');
-    setTimeout(() => { window.location.href = login.getAttribute('href'); }, 750);
-  });
+  const article = document.getElementById('articleBtn');
+  if (!login || !article) return;
+  (async () => {
+    try {
+      const me = await (await fetch('/api/me')).json();
+      if (me.canManage) {
+        login.style.display = 'none';
+        article.hidden = false;
+      }
+    } catch {}
+  })();
 })();
 </script>
 </body>

@@ -108,6 +108,8 @@ function getCookie(req, name) {
 const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 与登录 cookie 的 Max-Age 一致(604800s)
 // 唯一管理员即站主(muxi)。删除/上传等敏感操作仅对站主开放;将来若加普通账号,isOwner 会拦下对方。
 const OWNER_USERNAME = 'muxi';
+// 文章类型(分类)预设:后台写文章以下拉选择,主页侧栏据此列出预置分类。
+const CATEGORIES = ['前端开发', '技术随笔', '生活日常', '读书笔记'];
 function getSession(req) {
   const token = getCookie(req, 'blog_token');
   if (!token) return null;
@@ -214,6 +216,11 @@ async function handleAPI(req, res, pathname) {
       'SELECT id, title, excerpt, tag, created_at, updated_at FROM posts ORDER BY created_at DESC, id DESC'
     ).all();
     return sendJSON(res, 200, rows);
+  }
+
+  // 文章类型下拉的可选项(公开):后台编辑器加载候选,主页侧栏借此列出预置分类
+  if (pathname === '/api/categories' && req.method === 'GET') {
+    return sendJSON(res, 200, { categories: CATEGORIES });
   }
 
   let m = pathname.match(/^\/api\/posts\/(\d+)$/);

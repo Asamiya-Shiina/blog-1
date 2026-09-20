@@ -141,7 +141,7 @@
 
 .field { margin-bottom: 16px; }
 .field label { display: block; font-size: .84rem; font-weight: 600; color: var(--text); margin-bottom: 6px; }
-.field input, .field textarea {
+.field input, .field textarea, .field select {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
@@ -153,11 +153,12 @@
   outline: none;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
-.field input:focus, .field textarea:focus {
+.field input:focus, .field textarea:focus, .field select:focus {
   border-color: #e9825a;
   box-shadow: 0 0 0 3px rgba(233,130,90,.15);
 }
 .field textarea { resize: vertical; line-height: 1.6; }
+.field select { cursor: pointer; }
 
 /* ---- 后台:登录 ---- */
 .login-box {

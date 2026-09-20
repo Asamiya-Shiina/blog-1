@@ -34,6 +34,26 @@
 
   let editingId = null; // null = 新建
   let editSeq = 0; // 递增序号,丢弃过期的"编辑加载"结果,防连点竞态
+  let categoriesList = []; // 文章类型下拉候选,来自 /api/categories
+
+  // 填充文章类型下拉:默认选中第一项;候选加载失败时兜底一个「未分类」
+  async function initTagSelect() {
+    try {
+      const r = await api('/api/categories');
+      categoriesList = Array.isArray(r.categories) ? r.categories : [];
+    } catch {}
+    tagInput.textContent = '';
+    (categoriesList.length ? categoriesList : ['未分类']).forEach((c) => {
+      const o = document.createElement('option');
+      o.value = c;
+      o.textContent = c;
+      tagInput.appendChild(o);
+      if (tagInput.value === '' && c) tagInput.value = c; // 默认选中第一项
+    });
+  }
+  function resetTagSelect() {
+    if (tagInput.options.length) tagInput.value = tagInput.options[0].value;
+  }
 
   async function api(url, opts) {
     const res = await fetch(url, opts);
@@ -130,7 +150,14 @@
     const p = await api('/api/posts/' + id);
     if (seq !== editSeq) return; // 期间用户已切到别的文章,丢弃过期结果
     titleInput.value = p.title;
-    tagInput.value = p.tag || '';
+    // 回填文章类型:若该文章用了候选外的旧标签,临时补一个选项再选中,保存时仍保留
+    if (![...tagInput.options].some((o) => o.value === p.tag)) {
+      const o = document.createElement('option');
+      o.value = p.tag;
+      o.textContent = p.tag;
+      tagInput.appendChild(o);
+    }
+    tagInput.value = p.tag || (tagInput.options[0] ? tagInput.options[0].value : '');
     excerptInput.value = p.excerpt || '';
     contentInput.value = p.content || '';
     openEditor('编辑文章 #' + id);
@@ -153,7 +180,8 @@
       }
     } catch (e) { alert(e.message); return; }
     closeEditor();
-    titleInput.value = tagInput.value = excerptInput.value = contentInput.value = '';
+    titleInput.value = excerptInput.value = contentInput.value = '';
+    resetTagSelect();
     await loadPosts();
   }
 
@@ -205,7 +233,8 @@
 
   newBtn.addEventListener('click', () => {
     editingId = null;
-    titleInput.value = tagInput.value = excerptInput.value = contentInput.value = '';
+    titleInput.value = excerptInput.value = contentInput.value = '';
+    resetTagSelect();
     openEditor('写新文章');
     titleInput.focus();
   });
@@ -250,6 +279,7 @@
 
   // ---- 启动 ----
   (async () => {
+    await initTagSelect();
     try {
       const me = await api('/api/me');
       if (me.loggedIn) { showAdmin(); await loadPosts(); }
