@@ -36,7 +36,13 @@ CONFIG_PATH = os.path.join(HERE, 'config.json')
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 CRYPTPROTECT_UI_FORBIDDEN = 0x1
 
-DEFAULT_CONFIG = {'server': 'http://127.0.0.1:8080', 'password_b64': '', 'interval': 3}
+DEFAULT_CONFIG = {
+    'server': 'http://127.0.0.1:8080',
+    'password_b64': '',
+    'interval': 3,           # 活跃时心跳间隔(秒)
+    'idle_after_s': 120,     # 鼠标空闲多久后降频
+    'idle_interval': 30,     # 空闲后心跳间隔(秒);仍报,后端不会判离线
+}
 
 
 # ---------- 配置读写 ----------
@@ -176,29 +182,129 @@ def quick_verify(server, password, timeout=4):
         return 'unreachable'
 
 
+# ---------- 鼠标空闲监听(Win32 全局低级钩子) ----------
+# 只关心 mouse_move / lbutton / rbutton / mbutton / wheel,任何一项都视为"动了"。
+# last_input_ts 是 monotonic 秒,Heartbeat 读它算 idle 时长。
+# 钩子回调必须飞快,这里只做一次赋值;另起线程跑消息泵(没有消息泵钩子收不到事件)。
+import time as _time
+
+class MouseActivity:
+    WH_MOUSE_LL = 14
+    HC_ACTION = 0
+
+    _STRUCT_MSLHOOKSTRUCT = None
+    # 缓存字段索引以避免每帧 attribute lookup(钩子回调热路径)
+    _offsets = None
+
+    @classmethod
+    def _resolve_offsets(cls):
+        """MSLLHOOKSTRUCT 的字段布局在 32/64 位上一致(pt/40+0,mouseData/40+8,flags/40+12,time/40+16,dwExtraInfo/40+24);
+        但 ctypes.Structure 字段访问开销大,直接走 raw memory + 已知偏移更快。先用 Structure 拿,确认 .pt/.mouseData 可用即可。"""
+        class MSLLHOOKSTRUCT(ctypes.Structure):
+            _fields_ = [
+                ('pt', wintypes.POINT),
+                ('mouseData', wintypes.DWORD),
+                ('flags', wintypes.DWORD),
+                ('time', wintypes.DWORD),
+                ('dwExtraInfo', ctypes.c_void_p),
+            ]
+        cls._STRUCT_MSLHOOKSTRUCT = MSLLHOOKSTRUCT
+
+    def __init__(self):
+        self.last_input_ts = _time.monotonic()
+        self._hook_id = None
+        self._thread = None
+        self._stop = None
+
+    def _on_event(self, *_):
+        # 任何鼠标事件都更新一次;钩子回调要 < 1ms,这里只赋值。
+        self.last_input_ts = _time.monotonic()
+        return ctypes.windll.user32.CallNextHookEx(None, 0, 0, 0)
+
+    def start(self):
+        if self._thread is not None:
+            return
+        if self._STRUCT_MSLHOOKSTRUCT is None:
+            self._resolve_offsets()
+        CMPFUNC = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+        self._cb = CMPFUNC(self._on_event)
+        # 装全局钩子必须先把 hook 句柄放进模块级变量,否则 ctypes 偶尔会回收导致回调进不来
+        globals()['_mouse_hook_cb'] = self._cb
+        self._stop = threading.Event()
+        def pump():
+            try:
+                self._hook_id = ctypes.windll.user32.SetWindowsHookExW(
+                    self.WH_MOUSE_LL, self._cb, ctypes.windll.kernel32.GetModuleHandleW(None), 0)
+                if not self._hook_id:
+                    return
+                msg = wintypes.MSG()
+                while not self._stop.is_set():
+                    # PM_REMOVE=1;PeekMessage 不阻塞,让 stop 能及时响应
+                    if ctypes.windll.user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 1):
+                        ctypes.windll.user32.TranslateMessage(ctypes.byref(msg))
+                        ctypes.windll.user32.DispatchMessageW(ctypes.byref(msg))
+                    else:
+                        self._stop.wait(0.05)
+            finally:
+                if self._hook_id:
+                    ctypes.windll.user32.UnhookWindowsHookEx(self._hook_id)
+                    self._hook_id = None
+        self._thread = threading.Thread(target=pump, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        if self._stop:
+            self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=1.0)
+        self._thread = None
+        self._stop = None
+
+
 # ---------- 后台心跳线程 ----------
 class Heartbeat:
-    """登录 + 周期性上报;独立线程,可停止。status_cb(status) 每次变化回调(tkinter 安全侧自行判断线程)。"""
+    """登录 + 周期性上报;独立线程,可停止。status_cb(status) 每次变化回调(tkinter 安全侧自行判断线程)。
 
-    def __init__(self, server, password, interval, status_cb=None):
+    鼠标空闲时降频:idle_after_s 秒未动 → idle_interval 秒一次;动 → 回到 interval。
+    """
+
+    def __init__(self, server, password, interval, status_cb=None,
+                 idle_after_s=120, idle_interval=30, mouse=None):
         self.server = server.rstrip('/') + '/'
         self.password = password
         self.interval = max(1, int(interval or 3))
+        self.idle_after_s = max(1, int(idle_after_s or 120))
+        self.idle_interval = max(self.interval, int(idle_interval or 30))
+        # 共用外部 MouseActivity 实例;不传则建一个
+        self.mouse = mouse or MouseActivity()
+        self._mouse_owns = mouse is None  # 自己 new 的,退出时停掉
         self.status_cb = status_cb or (lambda s: None)
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
 
     def start(self):
+        try:
+            self.mouse.start()
+        except Exception as e:
+            # 钩子装不上就当全活跃(不影响主流程,只是不降频)
+            self._emit('鼠标监听启动失败(将以活跃频率上报): %s' % e)
         self._thread.start()
 
     def stop(self):
         self._stop.set()
+        if self._mouse_owns:
+            try: self.mouse.stop()
+            except Exception: pass
 
     def _emit(self, s):
         try:
             self.status_cb(s)
         except Exception:
             pass
+
+    def _current_interval(self):
+        idle_for = _time.monotonic() - self.mouse.last_input_ts
+        return self.idle_interval if idle_for >= self.idle_after_s else self.interval
 
     def _run(self):
         base = self.server
@@ -213,16 +319,31 @@ class Heartbeat:
             return
         self._emit('已连接')
         headers = {'X-Client-Token': token}
+        last_mode = None  # 用于状态条只在切换时刷一次
         while not self._stop.is_set():
+            cur = self._current_interval()
+            mode = 'idle' if cur >= self.idle_interval else 'active'
+            if mode != last_mode:
+                self._emit('空闲降频中(每 %ds)' % cur if mode == 'idle' else '已恢复活跃(每 %ds)' % cur)
+                last_mode = mode
             try:
                 proc, title = get_foreground_process()
                 if proc:
                     post_json(base + 'api/client/heartbeat', {'proc': proc, 'title': title or ''},
                               headers=headers)
-                    self._emit('正在用 %s' % proc)
+                    if mode == 'active':
+                        self._emit('正在用 %s' % proc)
             except Exception as e:
                 self._emit('上报失败: %s' % e)
-            self._stop.wait(self.interval)
+            # 每 0.5s 醒来重判间隔,而不是按一个长间隔硬睡:
+            # 这样用户一动鼠标,最多 0.5s 内就切回 3s 节奏,不用等完一整个 30s。
+            slept = 0.0
+            while slept < cur and not self._stop.is_set():
+                self._stop.wait(min(0.5, cur - slept))
+                slept += 0.5
+                # 模式变了就提前结束本次等待
+                if self._current_interval() < cur:
+                    break
 
 
 # ---------- 托盘图标(惰性导入,避免无 GUI 环境报错) ----------
@@ -273,9 +394,11 @@ def run_gui():
             hb[0].stop()
             hb[0] = None
 
-    def start_hb(server, password, interval, cb):
+    def start_hb(server, password, interval, cb, idle_after_s=None, idle_interval=None):
         stop_hb()
-        hb[0] = Heartbeat(server, password, interval, cb)
+        hb[0] = Heartbeat(server, password, interval, cb,
+                          idle_after_s=idle_after_s if idle_after_s is not None else cfg.get('idle_after_s', 120),
+                          idle_interval=idle_interval if idle_interval is not None else cfg.get('idle_interval', 30))
         hb[0].start()
 
     def make_tray():
@@ -326,7 +449,9 @@ def run_gui():
             set_status('写入配置失败: %s' % e, '#c0392b')
             return
         start_hb(server, pw, cfg['interval'],
-                 lambda s: root.after(0, lambda: set_status(s, '#2e7d32')))
+                 lambda s: root.after(0, lambda: set_status(s, '#2e7d32')),
+                 idle_after_s=cfg.get('idle_after_s'),
+                 idle_interval=cfg.get('idle_interval'))
         root.withdraw()
         make_tray()
 
@@ -374,7 +499,9 @@ def run_gui():
         if v != 'bad':
             start_hb(cfg.get('server') or DEFAULT_CONFIG['server'], saved_pw,
                      cfg.get('interval') or 3,
-                     lambda s: root.after(0, lambda: set_status(s, '#2e7d32')))
+                     lambda s: root.after(0, lambda: set_status(s, '#2e7d32')),
+                     idle_after_s=cfg.get('idle_after_s'),
+                     idle_interval=cfg.get('idle_interval'))
             root.withdraw()
             make_tray()
 
@@ -390,6 +517,8 @@ def main():
     ap.add_argument('--server')
     ap.add_argument('--password')
     ap.add_argument('--interval', type=int)
+    ap.add_argument('--idle-after-s', type=int, help='鼠标空闲多少秒后降频(覆盖 cfg)')
+    ap.add_argument('--idle-interval', type=int, help='空闲后心跳间隔秒(覆盖 cfg)')
     args = ap.parse_args()
 
     if args.gui:
@@ -427,8 +556,10 @@ def main():
         print('登录', '成功' if res.get('token') else '失败')
         return
 
-    hb = Heartbeat(base, password, interval, _Gui().show)
-    print(f'[loop] 开始上报(间隔 {interval}s),Ctrl+C 退出…')
+    hb = Heartbeat(base, password, interval, _Gui().show,
+                   idle_after_s=args.idle_after_s if args.idle_after_s is not None else cfg.get('idle_after_s', 120),
+                   idle_interval=args.idle_interval if args.idle_interval is not None else cfg.get('idle_interval', 30))
+    print(f'[loop] 开始上报(活跃 {interval}s / 空闲 {hb.idle_interval}s,阈值 {hb.idle_after_s}s),Ctrl+C 退出…')
     hb.start()
     try:
         while not hb._stop.is_set():
