@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>编辑文章 · Ciallo～(∠・ω< )⌒☆</title>
+<meta name="description" content="沐玺博客后台的单独编辑器页:写文章、插图上传、实时预览。">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#c0392b">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23c0392b'/%3E%3Cstop offset='1' stop-color='%23e67e22'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='42' fill='url(%23g)'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/admin.css">
+<link rel="stylesheet" href="assets/css/ripple.css">
+<style>
+  .editor-split { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .editor-split textarea { min-height:420px; }
+  .preview-pane {
+    border:1px solid rgba(0,0,0,.08); border-radius:12px; padding:16px;
+    background:rgba(255,255,255,.5); min-height:420px; overflow:auto; line-height:1.7;
+    color:var(--text);
+  }
+  .preview-pane img { max-width:100%; border-radius:8px; }
+  .preview-pane pre { background:rgba(0,0,0,.05); padding:10px; border-radius:8px; overflow:auto; }
+  .preview-pane code { background:rgba(0,0,0,.05); padding:1px 4px; border-radius:4px; }
+  .preview-pane pre code { background:none; padding:0; }
+  .preview-pane blockquote { border-left:3px solid var(--accent); margin:8px 0; padding-left:12px; color:var(--muted); }
+  @media (max-width:720px){ .editor-split{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<div data-part="bg"></div>
+
+<header class="site-header">
+  <nav class="nav">
+    <div class="brand brand-clock">
+      <span class="bc-greet" id="bcGreet">早上好</span>
+      <span class="bc-time" id="bcTime">00:00:00</span>
+    </div>
+    <div class="menu">
+      <a href="admin.html" data-ripple>← 返回文章列表</a>
+      <a href="index.html" data-ripple>返回首页</a>
+    </div>
+  </nav>
+</header>
+
+<div class="admin-wrap" id="editorWrap">
+  <div class="admin-toolbar">
+    <h1 id="editorTitle">写新文章</h1>
+    <div>
+      <button class="btn secondary small" id="logoutBtn">退出登录</button>
+    </div>
+  </div>
+
+  <div class="admin-card">
+    <div class="upload-row">
+      <label class="btn secondary small" for="imgInput">🖼 上传图片</label>
+      <input type="file" id="imgInput" accept="image/*" hidden>
+      <span class="hint">上传后图片会以 Markdown 语法插入到正文光标处。</span>
+      <span id="uploadStatus"></span>
+    </div>
+    <div class="field">
+      <label for="titleInput">标题 *</label>
+      <input id="titleInput" maxlength="200" placeholder="文章标题">
+    </div>
+    <div class="field">
+      <label for="tagInput">文章类型 *</label>
+      <select id="tagInput"></select>
+    </div>
+    <div class="field">
+      <label for="tagsInput">标签</label>
+      <input id="tagsInput" maxlength="400" placeholder="多个用逗号分隔,如:前端, Vue, 随笔">
+    </div>
+    <div class="field">
+      <label for="excerptInput">摘要</label>
+      <input id="excerptInput" maxlength="500" placeholder="一句话摘要(首页卡片显示)">
+    </div>
+  </div>
+
+  <div class="admin-card">
+    <div class="field">
+      <label for="contentInput">正文(Markdown)</label>
+      <div class="editor-split">
+        <textarea id="contentInput" rows="20" placeholder="支持标题、加粗、列表、代码块、图片等 Markdown 语法…"></textarea>
+        <div class="preview-pane" id="previewPane"><span class="hint">实时预览</span></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn" id="saveBtn">保存 / 发布</button>
+      <a class="btn secondary small" href="admin.html" data-ripple>返回列表</a>
+    </div>
+  </div>
+</div>
+
+<div data-part="player"></div>
+
+<!-- 圆形水波过渡层（全站统一） -->
+<div class="ripple" id="ripple"></div>
+
+<script src="assets/js/partials.js"></script>
+<script src="assets/js/player.js"></script>
+<script src="assets/js/clock.js"></script>
+<script src="assets/js/ripple.js"></script>
+<script src="assets/js/markdown.js"></script>
+<script src="assets/js/admin-editor.js"></script>
+</body>
+</html>

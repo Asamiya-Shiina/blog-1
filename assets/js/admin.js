@@ -1,6 +1,6 @@
-// 后台管理页逻辑
+// 后台管理页逻辑(文章列表)
 // 页面分流三种状态:首次设置密码(setupView) / 登录(loginView) / 管理区(adminView)。
-// 通过 /api/me 的 loggedIn + needsSetup 字段决定进入哪个视图。
+// 写文章与编辑改走独立编辑器页 admin-editor.html(含插图上传、实时预览)。
 (function () {
   const $ = (id) => document.getElementById(id);
 
@@ -16,45 +16,14 @@
   const setupBtn = $('setupBtn');
   const setupErr = $('setupErr');
 
-  const editorCard = $('editorCard');
-  const editorTitle = $('editorTitle');
-  const titleInput = $('titleInput');
-  const tagInput = $('tagInput');
-  const tagsInput = $('tagsInput');
-  const excerptInput = $('excerptInput');
-  const contentInput = $('contentInput');
-  const newBtn = $('newBtn');
-  const saveBtn = $('saveBtn');
-  const cancelEditorBtn = $('cancelEditorBtn');
   const logoutBtn = $('logoutBtn');
-  const imgInput = $('imgInput');
-  const uploadStatus = $('uploadStatus');
   const postList = $('postList');
   const listEmpty = $('listEmpty');
   const postCount = $('postCount');
-
-  let editingId = null; // null = 新建
-  let editSeq = 0; // 递增序号,丢弃过期的"编辑加载"结果,防连点竞态
-  let categoriesList = []; // 文章类型下拉候选,来自 /api/categories
-
-  // 填充文章类型下拉:默认选中第一项;候选加载失败时兜底一个「未分类」
-  async function initTagSelect() {
-    try {
-      const r = await api('/api/categories');
-      categoriesList = Array.isArray(r.categories) ? r.categories : [];
-    } catch {}
-    tagInput.textContent = '';
-    (categoriesList.length ? categoriesList : ['未分类']).forEach((c) => {
-      const o = document.createElement('option');
-      o.value = c;
-      o.textContent = c;
-      tagInput.appendChild(o);
-      if (tagInput.value === '' && c) tagInput.value = c; // 默认选中第一项
-    });
-  }
-  function resetTagSelect() {
-    if (tagInput.options.length) tagInput.value = tagInput.options[0].value;
-  }
+  const namesInput = $('namesInput');
+  const blockInput = $('blockInput');
+  const procSaveBtn = $('procSaveBtn');
+  const procStatus = $('procStatus');
 
   async function api(url, opts) {
     const res = await fetch(url, opts);
@@ -70,7 +39,7 @@
 
   function showSetup() { setupView.hidden = false; loginView.hidden = true; adminView.hidden = true; }
   function showLogin() { setupView.hidden = true; loginView.hidden = false; adminView.hidden = true; }
-  function showAdmin() { setupView.hidden = true; loginView.hidden = true; adminView.hidden = false; }
+  function showAdmin() { setupView.hidden = true; loginView.hidden = true; adminView.hidden = false; loadProcCfg(); }
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // 从某个元素中心触发水波盖屏(与首页 hero 进简介同一套动画)
@@ -82,6 +51,10 @@
     ripple.style.setProperty('--cy', (r.top + r.height / 2) + 'px');
     document.body.classList.add('profile-reveal');
     return true;
+  }
+  async function goTo(url, fromEl) {
+    if (rippleFrom(fromEl)) { await sleep(750); }
+    location.href = url;
   }
 
   let rippleBusy = false; // 防止水波期间连点
@@ -115,7 +88,7 @@
       const editBtn = document.createElement('button');
       editBtn.className = 'btn small secondary';
       editBtn.textContent = '编辑';
-      editBtn.addEventListener('click', () => editPost(p.id));
+      editBtn.addEventListener('click', () => goTo('admin-editor.html?id=' + p.id, editBtn));
       const delBtn = document.createElement('button');
       delBtn.className = 'btn small danger';
       delBtn.textContent = '删除';
@@ -127,65 +100,46 @@
     });
   }
 
-  function openEditor(title) {
-    editorTitle.textContent = title;
-    editorCard.hidden = false;
-    editorCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-  function closeEditor() {
-    editorCard.hidden = true;
-    editingId = null;
-  }
-  function collect() {
-    return {
-      title: titleInput.value,
-      tag: tagInput.value,
-      tags: tagsInput.value,
-      excerpt: excerptInput.value,
-      content: contentInput.value,
-    };
-  }
-
-  async function editPost(id) {
-    const seq = ++editSeq;
-    editingId = id;
-    const p = await api('/api/posts/' + id);
-    if (seq !== editSeq) return; // 期间用户已切到别的文章,丢弃过期结果
-    titleInput.value = p.title;
-    // 回填文章类型:若该文章用了候选外的旧标签,临时补一个选项再选中,保存时仍保留
-    if (![...tagInput.options].some((o) => o.value === p.tag)) {
-      const o = document.createElement('option');
-      o.value = p.tag;
-      o.textContent = p.tag;
-      tagInput.appendChild(o);
-    }
-    tagInput.value = p.tag || (tagInput.options[0] ? tagInput.options[0].value : '');
-    tagsInput.value = p.tags || '';
-    excerptInput.value = p.excerpt || '';
-    contentInput.value = p.content || '';
-    openEditor('编辑文章 #' + id);
-  }
-
   async function delPost(p) {
     if (!confirm('确定删除《' + p.title + '》吗?此操作不可恢复。')) return;
     await api('/api/posts/' + p.id, { method: 'DELETE' });
     await loadPosts();
   }
 
-  async function submit() {
-    const data = collect();
-    if (!data.title.trim()) { alert('标题不能为空'); titleInput.focus(); return; }
+  // ---- "正在用"状态设置 ----
+  const objToLines = (o) => Object.keys(o).map((k) => k + '=' + o[k]).join('\n');
+  const linesToObj = (s) => {
+    const o = {};
+    s.split(/[\n\r]+/).forEach((line) => {
+      const eq = line.indexOf('=');
+      if (eq > 0) { const k = line.slice(0, eq).trim(); const v = line.slice(eq + 1).trim(); if (k) o[k] = v; }
+    });
+    return o;
+  };
+  const linesToArr = (s) => s.split(/[\n\r]+/).map((x) => x.trim()).filter(Boolean);
+
+  async function loadProcCfg() {
+    if (!namesInput) return;
+    procStatus.textContent = '';
     try {
-      if (editingId === null) {
-        await api('/api/posts', jsonOpts(data));
-      } else {
-        await api('/api/posts/' + editingId, jsonOpts(data, 'PUT'));
-      }
-    } catch (e) { alert(e.message); return; }
-    closeEditor();
-    titleInput.value = tagsInput.value = excerptInput.value = contentInput.value = '';
-    resetTagSelect();
-    await loadPosts();
+      const n = await api('/api/names');
+      namesInput.value = Array.isArray(n.names) ? '' : objToLines(n.names || {});
+    } catch {}
+    try {
+      const b = await api('/api/blocklist');
+      blockInput.value = (Array.isArray(b.list) ? b.list : []).join('\n');
+    } catch {}
+  }
+
+  async function saveProcCfg() {
+    procStatus.textContent = '保存中…';
+    try {
+      await api('/api/names', jsonOpts({ names: linesToObj(namesInput.value) }, 'PUT'));
+      await api('/api/blocklist', jsonOpts({ list: linesToArr(blockInput.value) }, 'PUT'));
+      procStatus.textContent = '已保存 ✓';
+    } catch (e) {
+      procStatus.textContent = '保存失败:' + e.message;
+    }
   }
 
   // ---- 事件 ----
@@ -230,59 +184,13 @@
 
   logoutBtn.addEventListener('click', async () => {
     await api('/api/logout', { method: 'POST' });
-    closeEditor();
     showLogin();
   });
 
-  newBtn.addEventListener('click', () => {
-    editingId = null;
-    titleInput.value = tagsInput.value = excerptInput.value = contentInput.value = '';
-    resetTagSelect();
-    openEditor('写新文章');
-    titleInput.focus();
-  });
-  saveBtn.addEventListener('click', submit);
-  cancelEditorBtn.addEventListener('click', () => { closeEditor(); editorCard.scrollIntoView({ behavior: 'smooth' }); });
-
-  // 图片上传:转 base64 → 上传 → 插入正文光标处
-  imgInput.addEventListener('change', async () => {
-    const file = imgInput.files[0];
-    if (!file) return;
-    if (imgInput.dataset.busy) return;
-    imgInput.dataset.busy = '1';
-    uploadStatus.textContent = '上传中…';
-    try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(r.result);
-        r.onerror = () => reject(new Error('读取文件失败'));
-        r.readAsDataURL(file);
-      });
-      const res = await api('/api/upload', jsonOpts({ data: dataUrl }));
-      const md = '![' + (file.name.replace(/\.[^.]+$/, '') || '图片') + '](' + res.url + ') ';
-      insertAtCursor(contentInput, md);
-      uploadStatus.textContent = '已插入 ✓';
-    } catch (e) {
-      uploadStatus.textContent = '上传失败:' + e.message;
-    } finally {
-      imgInput.dataset.busy = '';
-      imgInput.value = '';
-      setTimeout(() => { uploadStatus.textContent = ''; }, 3000);
-    }
-  });
-
-  function insertAtCursor(tarea, text) {
-    const s = tarea.selectionStart ?? tarea.value.length;
-    const e = tarea.selectionEnd ?? tarea.value.length;
-    tarea.value = tarea.value.slice(0, s) + text + tarea.value.slice(e);
-    const pos = s + text.length;
-    tarea.focus();
-    tarea.setSelectionRange(pos, pos);
-  }
+  if (procSaveBtn) procSaveBtn.addEventListener('click', saveProcCfg);
 
   // ---- 启动 ----
   (async () => {
-    await initTagSelect();
     try {
       const me = await api('/api/me');
       if (me.loggedIn) { showAdmin(); await loadPosts(); }

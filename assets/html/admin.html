@@ -65,44 +65,8 @@
   <div class="admin-toolbar">
     <h1>文章管理</h1>
     <div>
-      <button class="btn secondary small" id="newBtn">＋ 写新文章</button>
+      <a class="btn small" href="admin-editor.html" data-ripple>＋ 写新文章</a>
       <button class="btn secondary small" id="logoutBtn">退出登录</button>
-    </div>
-  </div>
-
-  <div class="admin-card" id="editorCard" hidden>
-    <div class="editor-head">
-      <h2 id="editorTitle">写新文章</h2>
-      <div>
-        <button class="btn secondary small" id="cancelEditorBtn">取消</button>
-        <button class="btn small" id="saveBtn">保存 / 发布</button>
-      </div>
-    </div>
-    <div class="upload-row">
-      <label class="btn secondary small" for="imgInput">🖼 上传图片</label>
-      <input type="file" id="imgInput" accept="image/*" hidden>
-      <span class="hint">上传后图片会以 Markdown 语法插入到正文光标处。</span>
-      <span id="uploadStatus"></span>
-    </div>
-    <div class="field">
-      <label for="titleInput">标题 *</label>
-      <input id="titleInput" maxlength="200" placeholder="文章标题">
-    </div>
-    <div class="field">
-      <label for="tagInput">文章类型 *</label>
-      <select id="tagInput"></select>
-    </div>
-    <div class="field">
-      <label for="tagsInput">标签</label>
-      <input id="tagsInput" maxlength="400" placeholder="多个用逗号分隔,如:前端, Vue, 随笔">
-    </div>
-    <div class="field">
-      <label for="excerptInput">摘要</label>
-      <input id="excerptInput" maxlength="500" placeholder="一句话摘要(首页卡片显示)">
-    </div>
-    <div class="field">
-      <label for="contentInput">正文(Markdown)</label>
-      <textarea id="contentInput" rows="16" placeholder="支持标题、加粗、列表、代码块、图片等 Markdown 语法…"></textarea>
     </div>
   </div>
 
@@ -110,6 +74,22 @@
     <p class="hint">共 <span id="postCount">0</span> 篇文章</p>
     <div id="postList"></div>
     <p class="empty" id="listEmpty" hidden>还没有文章,点「写新文章」开始吧 ✧</p>
+  </div>
+
+  <div class="admin-card">
+    <div class="editor-head">
+      <h2>前台"正在用"状态</h2>
+      <button class="btn secondary small" id="procSaveBtn">保存设置</button>
+    </div>
+    <div class="field">
+      <label for="namesInput">进程改名(每行一个,格式 exe=显示名,如 chrome.exe=Chrome)</label>
+      <textarea id="namesInput" rows="5" placeholder="chrome.exe=Chrome&#10;WeChat.exe=微信"></textarea>
+    </div>
+    <div class="field">
+      <label for="blockInput">黑名单不予显示(每行一个进程名,前台将显示「正在专注」)</label>
+      <textarea id="blockInput" rows="3" placeholder="spotify.exe&#10;games"></textarea>
+    </div>
+    <p class="hint" id="procStatus"></p>
   </div>
 </div>
 

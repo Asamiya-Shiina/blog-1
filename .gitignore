@@ -7,3 +7,10 @@ node-v*.msi
 # background/
 # 本地文档不入库
 *.docx
+# exe 客户端:真实密码不入库,只放模板
+client/config.json
+dist/
+build/
+*.spec
+__pycache__/
+client/__pycache__/

@@ -64,7 +64,7 @@
       <div class="hero-sparkles" aria-hidden="true"><span>✿</span><span>✦</span><span>♡</span></div>
       <div class="hero-eyebrow">Ciallo～(∠・ω&lt; )⌒☆</div>
       <h1>你好，我是<span class="name">沐玺</span></h1>
-      <p>目前没想好写什么</p>
+      <p class="hero-status" id="heroStatus">休息中</p>
     </section>
 
     <!-- 相册:hero 下方的照片墙,图片存 photo/ 文件夹,右上角可上传 -->
@@ -291,6 +291,29 @@
       }
     } catch {}
   })();
+})();
+</script>
+<script>
+// 前台"正在用"状态:轮询 /api/status,替换 hero 占位。黑名单命中显示温和文案,离线回落默认。
+(function () {
+  const el = document.getElementById('heroStatus');
+  const FALLBACK = '休息中';
+  const BLOCKED = '正在专注';
+  if (!el) return;
+  async function poll() {
+    try {
+      const s = await (await fetch('/api/status')).json();
+      if (s && s.online) {
+        if (s.blocked) el.textContent = BLOCKED;                 // 黑名单:不暴露进程
+        else if (s.display) el.textContent = '正在用 ' + s.display;
+        else el.textContent = FALLBACK;
+      } else {
+        el.textContent = FALLBACK;
+      }
+    } catch { /* 连不上先保持现状,下一轮再试 */ }
+  }
+  poll();
+  setInterval(poll, 8000);
 })();
 </script>
 </body>
