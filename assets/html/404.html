@@ -61,8 +61,7 @@
 </head>
 <body>
 
-<video class="bg-video" autoplay muted loop playsinline src="/background/Scene1.mp4"></video>
-<div class="bg-shade"></div>
+<div data-part="bg"></div>
 
 <header class="site-header">
   <nav class="nav">
@@ -85,13 +84,12 @@
   </div>
 </main>
 
-<footer class="site-footer">
-  Ciallo～(∠・ω&lt; )⌒☆
-</footer>
+<div data-part="footer"></div>
 
 <!-- 圆形水波过渡层:点击「回首页看看」触发,与主页进入简介用的同一套动画 -->
 <div class="ripple" id="ripple"></div>
 
+<script src="/assets/js/partials.js"></script>
 <script src="/assets/js/ripple.js"></script>
 
 </body>

@@ -5,3 +5,5 @@ photo/
 server.log
 node-v*.msi
 # background/
+# 本地文档不入库
+*.docx

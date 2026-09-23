@@ -1,5 +1,8 @@
 services:
   blog:
+    # 默认拉取 GHCR 镜像(由 .github/workflows/docker-publish.yml 在 push 时自动构建推送)
+    # 本地改代码想跑新构建: docker compose up -d --build
+    image: ghcr.io/mako07210721/blog:main
     build:
       context: .
       dockerfile: Dockerfile

@@ -1,6 +1,7 @@
 // 播放器挂在每个页面右下角,跨页面靠 localStorage 续播。
 // 存了四样东西:进度、是否在播、是否展开、拖到的位置。
 (function () {
+  function init() {
   const player = document.getElementById('musicPlayer');
   const mpAudio = document.getElementById('mpAudio');
   if (!player || !mpAudio) return;
@@ -172,5 +173,13 @@
   // 否则从 0 开始播一秒再被 seek 到上次位置,会有“跳一下”的体验
   mpAudio.addEventListener('canplay', () => {
     if (saved.playing && mpAudio.paused) mpAudio.play().catch(() => {});
+  });
+  }
+
+  // 播放器 DOM 现由 partials.js 异步注入,先等 partials-ready;若分片已就位则直接初始化
+  if (document.getElementById('musicPlayer')) init();
+  else document.addEventListener('partials-ready', function onReady() {
+    document.removeEventListener('partials-ready', onReady);
+    init();
   });
 })();
