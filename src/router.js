@@ -4,10 +4,9 @@ const { sendJSON } = require('./helpers');
 const posts = require('./routes/posts');
 const uploads = require('./routes/uploads');
 const auth = require('./routes/auth');
-const client = require('./routes/client');
-const status = require('./routes/status');
+const data = require('./routes/data');
 
-const table = [...posts, ...uploads, ...auth, ...client, ...status];
+const table = [...posts, ...uploads, ...auth, ...data];
 
 // 按 (method, regex) 匹配,命中则执行 handler(async)。返回 Promise 供 server 统一兜底 500。
 // handler 内如同步抛错,这里转成 reject 让上层 catch。未命中返回 404 JSON。

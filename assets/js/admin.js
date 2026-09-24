@@ -21,7 +21,11 @@
   const listEmpty = $('listEmpty');
   const postCount = $('postCount');
   const namesInput = $('namesInput');
+  const renamePatternsInput = $('renamePatternsInput');
   const blockInput = $('blockInput');
+  const blockPatternsInput = $('blockPatternsInput');
+  const titleAppsInput = $('titleAppsInput');
+  const titlePatternsInput = $('titlePatternsInput');
   const procSaveBtn = $('procSaveBtn');
   const procStatus = $('procStatus');
 
@@ -106,7 +110,7 @@
     await loadPosts();
   }
 
-  // ---- "正在用"状态设置 ----
+  // ---- "正在用"状态设置(统一配置对象:改名/正则/黑名单/标题应用) ----
   const objToLines = (o) => Object.keys(o).map((k) => k + '=' + o[k]).join('\n');
   const linesToObj = (s) => {
     const o = {};
@@ -117,25 +121,40 @@
     return o;
   };
   const linesToArr = (s) => s.split(/[\n\r]+/).map((x) => x.trim()).filter(Boolean);
+  // "正则=名称" 每行 → [{pattern,name}]
+  const patternsToArr = (s) => linesToArr(s).map((line) => {
+    const eq = line.indexOf('=');
+    if (eq > 0) return { pattern: line.slice(0, eq).trim(), name: line.slice(eq + 1).trim() };
+    return { pattern: line, name: '' };
+  }).filter((x) => x.pattern);
+  // [{pattern,name}] → 每行 "pattern=name"
+  const patternsToLines = (arr) => (arr || []).map((x) => x.pattern + '=' + (x.name || '')).join('\n');
 
   async function loadProcCfg() {
     if (!namesInput) return;
     procStatus.textContent = '';
     try {
-      const n = await api('/api/names');
-      namesInput.value = Array.isArray(n.names) ? '' : objToLines(n.names || {});
-    } catch {}
-    try {
-      const b = await api('/api/blocklist');
-      blockInput.value = (Array.isArray(b.list) ? b.list : []).join('\n');
-    } catch {}
+      const c = await api('/api/data/admin/config');
+      namesInput.value = objToLines(c.appNames || {});
+      renamePatternsInput.value = patternsToLines(c.appNamePatterns || []);
+      blockInput.value = (c.blacklist || []).join('\n');
+      blockPatternsInput.value = (c.blacklistPatterns || []).join('\n');
+      titleAppsInput.value = (c.titleApps || []).join('\n');
+      titlePatternsInput.value = (c.titleAppPatterns || []).join('\n');
+    } catch (e) { procStatus.textContent = '加载失败:' + e.message; }
   }
 
   async function saveProcCfg() {
     procStatus.textContent = '保存中…';
     try {
-      await api('/api/names', jsonOpts({ names: linesToObj(namesInput.value) }, 'PUT'));
-      await api('/api/blocklist', jsonOpts({ list: linesToArr(blockInput.value) }, 'PUT'));
+      await api('/api/data/admin/config', jsonOpts({
+        appNames: linesToObj(namesInput.value),
+        appNamePatterns: patternsToArr(renamePatternsInput.value),
+        blacklist: linesToArr(blockInput.value),
+        blacklistPatterns: linesToArr(blockPatternsInput.value),
+        titleApps: linesToArr(titleAppsInput.value),
+        titleAppPatterns: linesToArr(titlePatternsInput.value),
+      }));
       procStatus.textContent = '已保存 ✓';
     } catch (e) {
       procStatus.textContent = '保存失败:' + e.message;

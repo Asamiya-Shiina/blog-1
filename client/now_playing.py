@@ -23,6 +23,7 @@ import ctypes
 import ctypes.wintypes as wintypes
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -42,7 +43,7 @@ DEFAULT_CONFIG = {
     'interval': 3,           # 活跃时心跳间隔(秒)
     'idle_after_s': 120,     # 鼠标空闲多久后降频
     'idle_interval': 30,     # 空闲后心跳间隔(秒);仍报,后端不会判离线
-}
+    }
 
 
 # ---------- 配置读写 ----------
@@ -151,21 +152,32 @@ def get_foreground_process():
         size = wintypes.DWORD(2048)
         b = ctypes.create_unicode_buffer(2048)
         if kernel32.QueryFullProcessImageNameW(hproc, 0, b, ctypes.byref(size)):
-            return os.path.basename(b.value).lower(), title
+            return os.path.splitext(os.path.basename(b.value))[0], title
     finally:
         kernel32.CloseHandle(hproc)
     return None, title or None
 
 
 # ---------- HTTP 小助手(纯标准库) ----------
+def _open(req, timeout):
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        body = resp.read().decode('utf-8') or '{}'
+        return json.loads(body)
+
+
+def get_json(url, headers=None, timeout=6):
+    req = urllib.request.Request(url, method='GET')
+    if headers:
+        req.headers.update(headers)
+    return _open(req, timeout)
+
+
 def post_json(url, data, headers=None, timeout=6, expected_code=200):
     req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), method='POST',
                                  headers={'Content-Type': 'application/json'})
     if headers:
         req.headers.update(headers)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        body = resp.read().decode('utf-8') or '{}'
-        return json.loads(body)
+    return _open(req, timeout)
 
 
 def quick_verify(server, password, timeout=4):
@@ -182,119 +194,66 @@ def quick_verify(server, password, timeout=4):
         return 'unreachable'
 
 
-# ---------- 鼠标空闲监听(Win32 全局低级钩子) ----------
-# 只关心 mouse_move / lbutton / rbutton / mbutton / wheel,任何一项都视为"动了"。
-# last_input_ts 是 monotonic 秒,Heartbeat 读它算 idle 时长。
-# 钩子回调必须飞快,这里只做一次赋值;另起线程跑消息泵(没有消息泵钩子收不到事件)。
-import time as _time
+# ---------- 空闲检测(GetLastInputInfo,Win32) ----------
+# 比全局低级鼠标钩子轻得多:一次 API 调用拿到"距最后一次键盘/鼠标输入的秒数",
+# 天然覆盖键鼠且无线程/钩子回调;心跳线程按固定节奏轮询它即可。
+class _LASTINPUTINFO(ctypes.Structure):
+    _fields_ = [('cbSize', wintypes.UINT), ('dwTime', wintypes.DWORD)]
 
-class MouseActivity:
-    WH_MOUSE_LL = 14
-    HC_ACTION = 0
+kernel32.GetTickCount64.restype = ctypes.c_uint64
 
-    _STRUCT_MSLHOOKSTRUCT = None
-    # 缓存字段索引以避免每帧 attribute lookup(钩子回调热路径)
-    _offsets = None
-
-    @classmethod
-    def _resolve_offsets(cls):
-        """MSLLHOOKSTRUCT 的字段布局在 32/64 位上一致(pt/40+0,mouseData/40+8,flags/40+12,time/40+16,dwExtraInfo/40+24);
-        但 ctypes.Structure 字段访问开销大,直接走 raw memory + 已知偏移更快。先用 Structure 拿,确认 .pt/.mouseData 可用即可。"""
-        class MSLLHOOKSTRUCT(ctypes.Structure):
-            _fields_ = [
-                ('pt', wintypes.POINT),
-                ('mouseData', wintypes.DWORD),
-                ('flags', wintypes.DWORD),
-                ('time', wintypes.DWORD),
-                ('dwExtraInfo', ctypes.c_void_p),
-            ]
-        cls._STRUCT_MSLHOOKSTRUCT = MSLLHOOKSTRUCT
-
-    def __init__(self):
-        self.last_input_ts = _time.monotonic()
-        self._hook_id = None
-        self._thread = None
-        self._stop = None
-
-    def _on_event(self, *_):
-        # 任何鼠标事件都更新一次;钩子回调要 < 1ms,这里只赋值。
-        self.last_input_ts = _time.monotonic()
-        return ctypes.windll.user32.CallNextHookEx(None, 0, 0, 0)
-
-    def start(self):
-        if self._thread is not None:
-            return
-        if self._STRUCT_MSLHOOKSTRUCT is None:
-            self._resolve_offsets()
-        CMPFUNC = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
-        self._cb = CMPFUNC(self._on_event)
-        # 装全局钩子必须先把 hook 句柄放进模块级变量,否则 ctypes 偶尔会回收导致回调进不来
-        globals()['_mouse_hook_cb'] = self._cb
-        self._stop = threading.Event()
-        def pump():
-            try:
-                self._hook_id = ctypes.windll.user32.SetWindowsHookExW(
-                    self.WH_MOUSE_LL, self._cb, ctypes.windll.kernel32.GetModuleHandleW(None), 0)
-                if not self._hook_id:
-                    return
-                msg = wintypes.MSG()
-                while not self._stop.is_set():
-                    # PM_REMOVE=1;PeekMessage 不阻塞,让 stop 能及时响应
-                    if ctypes.windll.user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 1):
-                        ctypes.windll.user32.TranslateMessage(ctypes.byref(msg))
-                        ctypes.windll.user32.DispatchMessageW(ctypes.byref(msg))
-                    else:
-                        self._stop.wait(0.05)
-            finally:
-                if self._hook_id:
-                    ctypes.windll.user32.UnhookWindowsHookEx(self._hook_id)
-                    self._hook_id = None
-        self._thread = threading.Thread(target=pump, daemon=True)
-        self._thread.start()
-
-    def stop(self):
-        if self._stop:
-            self._stop.set()
-        if self._thread:
-            self._thread.join(timeout=1.0)
-        self._thread = None
-        self._stop = None
+class IdleDetector:
+    def idle_seconds(self):
+        """返回距最后一次键盘/鼠标输入的秒数;取不到返回大值(视同空闲)。"""
+        lii = _LASTINPUTINFO()
+        lii.cbSize = ctypes.sizeof(_LASTINPUTINFO)
+        if not user32.GetLastInputInfo(ctypes.byref(lii)):
+            return 999.0
+        # GetTickCount64 与 dwTime 同源单调时钟,相减得空闲毫秒(天然处理 32 位回绕)
+        return max(0.0, (kernel32.GetTickCount64() - lii.dwTime) / 1000.0)
 
 
 # ---------- 后台心跳线程 ----------
-class Heartbeat:
-    """登录 + 周期性上报;独立线程,可停止。status_cb(status) 每次变化回调(tkinter 安全侧自行判断线程)。
+# 对齐上游行为:客户端启动后先拉 /api/data/config,本地做黑名单/改名(含正则)/标题应用,
+# 再按 进程/空闲 判定上报 {active, app, title, icon, deviceName} 到 /api/data;
+# 主动 active:false 离线。只在本机改名,上报即显示名。
+REST_SECONDS = 300  # 空闲这么长判"休息中"(语义,区别于下面的降频节流阈值)
+SELF_PROCS = ('python', 'pythonw', '状态客户端', 'status_client', 'now_playing')
+DEDUP_SECONDS = 30  # 状态未变仅每 30s 保活上报,省请求也匹配服务端 45s 离线判定
 
-    鼠标空闲时降频:idle_after_s 秒未动 → idle_interval 秒一次;动 → 回到 interval。
+
+class Heartbeat:
+    """登录 + 拉配置 + 周期性上报;独立线程,可停止。status_cb(status) 每次变化回调(tkinter 安全侧自行判断线程)。
+
+    键鼠空闲超过 idle_after_s 秒 → 降频到 idle_interval 秒一次;动 → 回 interval。空闲 REST_SECONDS 报"休息中"。
     """
 
     def __init__(self, server, password, interval, status_cb=None,
-                 idle_after_s=120, idle_interval=30, mouse=None):
-        self.server = server.rstrip('/') + '/'
+                 idle_after_s=120, idle_interval=30, mouse=None, focus_cb=None):
+        # 可能是从浏览器地址栏复制的网址(带 /index.html),剥掉只留站点根,否则拼到 API 上会 404
+        raw = re.sub(r'/index\.html$', '', (server or '').strip())
+        self.server = raw.rstrip('/') + '/'
         self.password = password
         self.interval = max(1, int(interval or 3))
         self.idle_after_s = max(1, int(idle_after_s or 120))
         self.idle_interval = max(self.interval, int(idle_interval or 30))
-        # 共用外部 MouseActivity 实例;不传则建一个
-        self.mouse = mouse or MouseActivity()
-        self._mouse_owns = mouse is None  # 自己 new 的,退出时停掉
+        self.device_name = 'PC'  # 单设备,固定名;后端多设备协议仍兼容
+        self.focus_cb = focus_cb or (lambda s: None)  # 实时汇报当前读到的焦点,用于监测是否正常
+        # 共用外部 IdleDetector 实例;不传则建一个(纯轮询,无线程/句柄,无需显式 start/stop)
+        self.mouse = mouse or IdleDetector()
         self.status_cb = status_cb or (lambda s: None)
+        self.config = None  # 服务端下发的过滤/改名配置,登录后拉取
+        self._last_key = None
+        self._last_sent_ts = 0.0
+        self._headers = {}
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
 
     def start(self):
-        try:
-            self.mouse.start()
-        except Exception as e:
-            # 钩子装不上就当全活跃(不影响主流程,只是不降频)
-            self._emit('鼠标监听启动失败(将以活跃频率上报): %s' % e)
         self._thread.start()
 
     def stop(self):
         self._stop.set()
-        if self._mouse_owns:
-            try: self.mouse.stop()
-            except Exception: pass
 
     def _emit(self, s):
         try:
@@ -303,8 +262,117 @@ class Heartbeat:
             pass
 
     def _current_interval(self):
-        idle_for = _time.monotonic() - self.mouse.last_input_ts
+        idle_for = self.mouse.idle_seconds()
         return self.idle_interval if idle_for >= self.idle_after_s else self.interval
+
+    # ---- 本地过滤/改名(照搬上游判定次序,可在 config 里配正则) ----
+    def is_blacklisted(self, proc, title):
+        if not self.config:
+            return False
+        name = proc.lower()
+        for b in self.config.get('blacklist', []):
+            if b and b.lower() == name:
+                return True
+        for pat in self.config.get('blacklistPatterns', []):
+            try:
+                if re.search(pat, proc, re.I) or re.search(pat, title, re.I):
+                    return True
+            except Exception:
+                pass
+        return False
+
+    def resolve_app_name(self, proc):
+        if not self.config:
+            return proc
+        an = self.config.get('appNames', {})
+        if proc in an:
+            return an[proc]
+        low = proc.lower()
+        for k, v in an.items():
+            if k.lower() == low:
+                return v
+        for item in self.config.get('appNamePatterns', []):
+            try:
+                if re.search(item.get('pattern', ''), proc, re.I):
+                    return item.get('name', proc)
+            except Exception:
+                pass
+        return proc
+
+    def should_show_title(self, proc):
+        if not self.config:
+            return False
+        ta = self.config.get('titleApps', [])
+        if proc in ta:
+            return True
+        low = proc.lower()
+        for i in ta:
+            if i.lower() == low:
+                return True
+        for item in self.config.get('titleAppPatterns', []):
+            try:
+                if re.search(item.get('pattern', ''), proc, re.I):
+                    return True
+            except Exception:
+                pass
+        return False
+
+    # ---- 单次采集:生成 payload 并上报(带去重) ----
+    def _report(self, payload):
+        key = json.dumps(payload, ensure_ascii=False)
+        now = time.monotonic()
+        if key == self._last_key and (now - self._last_sent_ts) < DEDUP_SECONDS:
+            return
+        try:
+            post_json(self.server + 'api/data', payload, headers=self._headers)
+        except Exception as e:
+            self._emit('上报失败: %s' % e)
+            return
+        self._last_key = key
+        self._last_sent_ts = now
+        if payload.get('active') and payload.get('icon') != 'break':
+            self._emit('正在用 %s' % (payload.get('app') or ''))
+
+    def _emit_focus(self, text):
+        try: self.focus_cb(text)
+        except Exception: pass
+
+    def _tick(self):
+        device = self.device_name
+        idle_for = self.mouse.idle_seconds()
+        if idle_for >= REST_SECONDS:
+            # 离开电脑很久 → 报"休息中",仍 active 维持在线
+            self._emit_focus('休息中 (已离开 %d 分钟)' % (idle_for // 60))
+            self._report({'active': True, 'app': '休息中', 'title': '', 'icon': 'break', 'deviceName': device})
+            return
+        win = get_foreground_process()
+        if not win or not win[0]:
+            self._emit_focus('未检测到前台窗口')
+            return  # 无前台普通窗口,保留上次状态
+        proc, title = win or ('', '')
+        pl = proc.lower()
+        # 进程是自己(状态客户端)→ 不上报,避免循环检测
+        if pl in SELF_PROCS:
+            self._emit_focus('%s(本客户端)' % proc)
+            return
+        if self.is_blacklisted(proc, title):
+            self._emit_focus('%s(已隐藏)' % proc)
+            self._report({'active': True, 'app': '休息一下,马上回来', 'title': '', 'icon': 'break', 'deviceName': device})
+            return
+        app = self.resolve_app_name(proc)
+        if pl == 'explorer' and title == 'Program Manager':
+            app = '桌面'
+        elif pl == 'windowsterminal':
+            app = '消耗Token死命调试中....'
+        show_title = self.should_show_title(proc)
+        self._emit_focus(app + (' · ' + title if show_title and title else ''))
+        self._report({
+            'active': True,
+            'app': app,
+            'title': title if show_title else '',
+            'icon': pl,
+            'deviceName': device,
+        })
 
     def _run(self):
         base = self.server
@@ -317,9 +385,14 @@ class Heartbeat:
         if not token:
             self._emit('登录失败(密码错误或服务器未开)')
             return
+        self._headers = {'X-Client-Token': token}
+        # 拉过滤/改名配置;拿不到就用空(仍可上报原始进程名)
+        try:
+            self.config = get_json(base + 'api/data/config', headers=self._headers)
+        except Exception as e:
+            self._emit('拉取配置失败(将只用原始进程名): %s' % e)
         self._emit('已连接')
-        headers = {'X-Client-Token': token}
-        last_mode = None  # 用于状态条只在切换时刷一次
+        last_mode = None
         while not self._stop.is_set():
             cur = self._current_interval()
             mode = 'idle' if cur >= self.idle_interval else 'active'
@@ -327,21 +400,14 @@ class Heartbeat:
                 self._emit('空闲降频中(每 %ds)' % cur if mode == 'idle' else '已恢复活跃(每 %ds)' % cur)
                 last_mode = mode
             try:
-                proc, title = get_foreground_process()
-                if proc:
-                    post_json(base + 'api/client/heartbeat', {'proc': proc, 'title': title or ''},
-                              headers=headers)
-                    if mode == 'active':
-                        self._emit('正在用 %s' % proc)
+                self._tick()
             except Exception as e:
                 self._emit('上报失败: %s' % e)
-            # 每 0.5s 醒来重判间隔,而不是按一个长间隔硬睡:
-            # 这样用户一动鼠标,最多 0.5s 内就切回 3s 节奏,不用等完一整个 30s。
+            # 每 0.5s 醒来重判间隔:一动鼠标最多 0.5s 内切回活跃节奏,不用等完一整个 idle_interval。
             slept = 0.0
             while slept < cur and not self._stop.is_set():
                 self._stop.wait(min(0.5, cur - slept))
                 slept += 0.5
-                # 模式变了就提前结束本次等待
                 if self._current_interval() < cur:
                     break
 
@@ -389,16 +455,26 @@ def run_gui():
     def set_status(txt, color='#333'):
         status_lbl.config(text=txt, fg=color)
 
+    def on_focus(text):
+        # 焦点信息可能来自后台线程,经 root.after 调度到主线程刷新窗口与托盘 tooltip
+        def apply():
+            focus_lbl.config(text='当前焦点: ' + text)
+            if tray[0] is not None:
+                try: tray[0].title = '正在用 · ' + text
+                except Exception: pass
+        root.after(0, apply)
+
     def stop_hb():
         if hb[0]:
             hb[0].stop()
             hb[0] = None
 
-    def start_hb(server, password, interval, cb, idle_after_s=None, idle_interval=None):
+    def start_hb(server, password, interval, cb, idle_after_s=None, idle_interval=None, focus_cb=None):
         stop_hb()
         hb[0] = Heartbeat(server, password, interval, cb,
                           idle_after_s=idle_after_s if idle_after_s is not None else cfg.get('idle_after_s', 120),
-                          idle_interval=idle_interval if idle_interval is not None else cfg.get('idle_interval', 30))
+                          idle_interval=idle_interval if idle_interval is not None else cfg.get('idle_interval', 30),
+                          focus_cb=focus_cb)
         hb[0].start()
 
     def make_tray():
@@ -451,7 +527,8 @@ def run_gui():
         start_hb(server, pw, cfg['interval'],
                  lambda s: root.after(0, lambda: set_status(s, '#2e7d32')),
                  idle_after_s=cfg.get('idle_after_s'),
-                 idle_interval=cfg.get('idle_interval'))
+                 idle_interval=cfg.get('idle_interval'),
+                 focus_cb=on_focus)
         root.withdraw()
         make_tray()
 
@@ -484,9 +561,11 @@ def run_gui():
     ttk.Button(frm, text='保存并开始', command=on_save_start).pack(anchor='w', pady=(12, 4), **padx)
     ttk.Button(frm, text='退出', command=on_quit_btn).pack(anchor='w', **padx)
 
+    focus_lbl = ttk.Label(frm, text='当前焦点: —', foreground='#2e7d32')
+    focus_lbl.pack(anchor='w', pady=(2, 0), **padx)
     status_lbl = ttk.Label(frm, text='', foreground='#333')
     status_lbl.pack(anchor='w', pady=(8, 0), **padx)
-    tip = ttk.Label(frm, text='提示:最小化后转系统托盘常驻;密码加密存于本机',
+    tip = ttk.Label(frm, text='提示:最小化后转系统托盘常驻;密码加密存于本机;托盘悬停可见当前焦点',
                     foreground='#888', font=('', 9))
     tip.pack(anchor='w', pady=(4, 0), **padx)
 
@@ -501,7 +580,8 @@ def run_gui():
                      cfg.get('interval') or 3,
                      lambda s: root.after(0, lambda: set_status(s, '#2e7d32')),
                      idle_after_s=cfg.get('idle_after_s'),
-                     idle_interval=cfg.get('idle_interval'))
+                     idle_interval=cfg.get('idle_interval'),
+                     focus_cb=on_focus)
             root.withdraw()
             make_tray()
 

@@ -49,6 +49,7 @@
         <a href="#posts">文章</a>
         <a href="#about">关于</a>
         <a href="#search">搜索</a>
+        <a href="status.html" data-ripple>状态</a>
       </div>
       <a class="login-entry" href="admin.html" data-ripple>登录 ✦</a>
       <a class="article-entry photo-upload-entry" id="articleBtn" href="admin.html" hidden data-ripple>文章 ✦</a>
@@ -294,31 +295,27 @@
 })();
 </script>
 <script>
-// 前台"正在用"状态:EventSource 订阅 /api/status/stream,收到 'status:changed' 即去拉一次 /api/status;
-// 同时保留 8s 轮询作为兜底(防 SSE 被代理拦截/断线后无感知)。黑名单命中显示温和文案,离线回落默认。
+// 前台"正在用"状态:EventSource 订阅 /api/data/stream,服务端直接下推多设备全量 JSON(推送即数据);
+// 同时保留 8s 轮询作兜底(防 SSE 断线无感知)。显示最新活跃应用,多台时带设备数,详见 /status.html。
 (function () {
   const el = document.getElementById('heroStatus');
   const FALLBACK = '休息中';
-  const BLOCKED = '正在专注';
   if (!el) return;
+  function render(d) {
+    const list = (d && Array.isArray(d.devices)) ? d.devices : [];
+    const active = list.filter((x) => x.icon !== 'break');
+    if (active.length === 0) { el.textContent = FALLBACK; return; }
+    const top = active[0].app;
+    el.textContent = '正在用 ' + (top || '…') + (active.length > 1 ? ' · ' + active.length + ' 台设备' : '');
+  }
   async function poll() {
-    try {
-      const s = await (await fetch('/api/status')).json();
-      if (s && s.online) {
-        if (s.blocked) el.textContent = BLOCKED;                 // 黑名单:不暴露进程
-        else if (s.display) el.textContent = '正在用 ' + s.display;
-        else el.textContent = FALLBACK;
-      } else {
-        el.textContent = FALLBACK;
-      }
-    } catch { /* 连不上先保持现状,下一轮再试 */ }
+    try { render(await (await fetch('/api/data')).json()); } catch { /* 连不上先保持现状,下一轮再试 */ }
   }
   poll();
   setInterval(poll, 8000);
-  // SSE 实时通道:EventSource 自带断线重连(retry: 3000 由服务端下发)。
   if (typeof EventSource !== 'undefined') {
-    const es = new EventSource('/api/status/stream');
-    es.addEventListener('status:changed', poll);
+    const es = new EventSource('/api/data/stream');
+    es.onmessage = (ev) => { try { render(JSON.parse(ev.data)); } catch {} };
     es.onerror = () => { /* 浏览器会自动按 retry 重连,这里不关 */ };
   }
 })();

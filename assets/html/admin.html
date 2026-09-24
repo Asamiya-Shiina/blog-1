@@ -82,12 +82,28 @@
       <button class="btn secondary small" id="procSaveBtn">保存设置</button>
     </div>
     <div class="field">
-      <label for="namesInput">进程改名(每行一个,格式 exe=显示名,如 chrome.exe=Chrome)</label>
-      <textarea id="namesInput" rows="5" placeholder="chrome.exe=Chrome&#10;WeChat.exe=微信"></textarea>
+      <label for="namesInput">进程改名(每行一个,格式 进程名=显示名,如 chrome=Chrome)</label>
+      <textarea id="namesInput" rows="4" placeholder="chrome=Chrome&#10;WeChat=微信"></textarea>
     </div>
     <div class="field">
-      <label for="blockInput">黑名单不予显示(每行一个进程名,前台将显示「正在专注」)</label>
-      <textarea id="blockInput" rows="3" placeholder="spotify.exe&#10;games"></textarea>
+      <label for="renamePatternsInput">改名正则(每行一个,格式 正则=名称,匹配即显示该名)</label>
+      <textarea id="renamePatternsInput" rows="2" placeholder="^.*terminal.*$=终端"></textarea>
+    </div>
+    <div class="field">
+      <label for="blockInput">黑名单(每行一个进程名,命中显示「休息一下」)</label>
+      <textarea id="blockInput" rows="3" placeholder="spotify&#10;obs"></textarea>
+    </div>
+    <div class="field">
+      <label for="blockPatternsInput">黑名单正则(每行一条,命中进程名或窗口标题即隐藏)</label>
+      <textarea id="blockPatternsInput" rows="2" placeholder="^games"></textarea>
+    </div>
+    <div class="field">
+      <label for="titleAppsInput">显示窗口标题的应用(每行一个进程名)</label>
+      <textarea id="titleAppsInput" rows="2" placeholder="WeChat"></textarea>
+    </div>
+    <div class="field">
+      <label for="titlePatternsInput">显示标题的正则(每行一条)</label>
+      <textarea id="titlePatternsInput" rows="2" placeholder="^.*browser.*$"></textarea>
     </div>
     <p class="hint" id="procStatus"></p>
   </div>

@@ -19,7 +19,7 @@ ensureDirs();
 // ---- 静态文件服务 ----
 // HTML 页都放在 assets/html/ 下,但对外仍保持干净 URL(/,/admin.html 等),这里做一层内部映射。
 const HTML_DIR = path.join(dir, 'assets', 'html');
-const HTML_PAGES = new Set(['/index.html', '/admin.html', '/admin-editor.html', '/post.html', '/profile.html', '/404.html']);
+const HTML_PAGES = new Set(['/index.html', '/admin.html', '/admin-editor.html', '/post.html', '/profile.html', '/status.html', '/404.html']);
 // 找不到文件时兜底返回风格统一的自定义 404 页,比裸文本友好
 function send404(res) {
   const file = path.join(HTML_DIR, '404.html');
