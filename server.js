@@ -52,10 +52,18 @@ function serveStatic(req, res, pathname) {
       const range = req.headers.range;
       if (range) {
         const m = /bytes=(\d*)-(\d*)/.exec(range);
-        let start = m && m[1] ? parseInt(m[1], 10) : 0;
-        let end = m && m[2] ? parseInt(m[2], 10) : stat.size - 1;
+        let start = 0, end = stat.size - 1;
+        if (m && m[1]) start = parseInt(m[1], 10);
+        if (m && m[2]) end   = parseInt(m[2], 10);
         if (isNaN(start)) start = 0;
-        if (isNaN(end) || end >= stat.size) end = stat.size - 1;
+        // bytes=-N(末尾 N 字节)单独处理:左端为空 → 取 stat.size - N 起算
+        if (m && !m[1] && m[2]) {
+          const n = parseInt(m[2], 10);
+          start = Math.max(0, stat.size - n);
+          end = stat.size - 1;
+        } else if (isNaN(end) || end >= stat.size) {
+          end = stat.size - 1;
+        }
         if (start > end || start >= stat.size) {
           res.writeHead(416, { 'Content-Range': 'bytes */' + stat.size });
           return res.end();
@@ -77,17 +85,19 @@ function serveStatic(req, res, pathname) {
       s.pipe(res);
       return;
     }
-    // 其余文件简单 readFile(NUL 已在上面拒绝,不会同步抛异常)
-    fs.readFile(file, (err2, data) => {
-      if (err2) { send404(res); return; }
-      // HTML 禁 bfcache(浏览器后退按钮走完整重载,避免水波遮罩残留);
-      // JS 禁浏览器缓存,确保 main.js / admin.js 等改动生效,水波圆心能及时跟随新代码。
-      const headers = { 'Content-Type': type };
-      if (ext === '.html' || ext === '.htm') headers['Cache-Control'] = 'no-store';
-      else if (ext === '.js') headers['Cache-Control'] = 'no-store';
+    // 其余文件走流式,大静态资源不再一次性吃进内存。
+    // 等 'open' 再写响应头,避免文件被并发删时已先回 200 再断流的尴尬。
+    // HTML 禁 bfcache(浏览器后退按钮走完整重载,避免水波遮罩残留);
+    // JS 禁浏览器缓存,确保 main.js / admin.js 等改动生效,水波圆心能及时跟随新代码。
+    const cache = (ext === '.html' || ext === '.htm' || ext === '.js') ? 'no-store' : undefined;
+    const headers = { 'Content-Type': type };
+    if (cache) headers['Cache-Control'] = cache;
+    const s = fs.createReadStream(file);
+    s.once('open', () => {
       res.writeHead(200, headers);
-      res.end(data);
+      s.pipe(res);
     });
+    s.on('error', () => { send404(res); s.destroy(); });
   });
 }
 
