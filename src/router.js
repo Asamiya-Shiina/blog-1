@@ -1,6 +1,7 @@
 // 路由分发：合并各 routes 模块的路由表,按 (method, regex) 匹配 dispatch。
 'use strict';
 const { sendJSON } = require('./helpers');
+const { tryClearExpiredSessionCookie } = require('./auth');
 const posts = require('./routes/posts');
 const uploads = require('./routes/uploads');
 const auth = require('./routes/auth');
@@ -11,6 +12,9 @@ const table = [...posts, ...uploads, ...auth, ...data];
 // 按 (method, regex) 匹配,命中则执行 handler(async)。返回 Promise 供 server 统一兜底 500。
 // handler 内如同步抛错,这里转成 reject 让上层 catch。未命中返回 404 JSON。
 function dispatch(req, res, pathname) {
+  // 每个 API 响应前都检查一次:cookie 还在但服务端已无该 session,
+  // 主动 Max-Age=0 让浏览器清除,避免 cookie 复活后又被用。
+  tryClearExpiredSessionCookie(req, res);
   for (const r of table) {
     if (r.method !== req.method) continue;
     const m = r.match.exec(pathname);
