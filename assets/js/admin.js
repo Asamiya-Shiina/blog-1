@@ -87,7 +87,8 @@
   let rippleBusy = false; // 防止水波期间连点
 
   async function loadPosts() {
-    const posts = await api('/api/posts');
+    const data = await api('/api/posts');
+    const posts = Array.isArray(data) ? data : [];
     postList.textContent = '';
     postCount.textContent = posts.length;
     listEmpty.hidden = posts.length > 0;
@@ -229,9 +230,16 @@
   );
 
   logoutBtn.addEventListener('click', async () => {
-    await api('/api/logout', { method: 'POST' });
+    if (rippleBusy) return;
+    try { await api('/api/logout', { method: 'POST' }); } catch {}
+    // 退出也走水波,与登录入场保持视觉一致
+    rippleBusy = true;
+    rippleFrom(logoutBtn);
+    await sleep(750);
     closeEditor();
     showLogin();
+    document.body.classList.remove('profile-reveal');
+    rippleBusy = false;
   });
 
   newBtn.addEventListener('click', () => {

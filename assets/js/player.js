@@ -163,17 +163,21 @@
   // Chrome 系不让没手势就自动播,所以第一次点页面任意位置时尝试续播;
   // 仅当上次离开时在播(saved.playing)才真播,否则只是预热 mpAudio,
   // 避免静音进入页面后被人不经意地点开出声。
-  const unlock = () => {
+  // 合并 unlock + canplay 触发,谁先到都不重复调 play
+  let resumed = false;
+  function tryResume() {
+    if (resumed) return;
+    if (!saved.playing) return;
+    if (mpAudio.paused) mpAudio.play().catch(() => {});
+    resumed = true;
+  }
+  document.addEventListener('click', function unlock() {
     document.removeEventListener('click', unlock);
-    if (saved.playing && mpAudio.paused) mpAudio.play().catch(() => {});
-  };
-  document.addEventListener('click', unlock);
-
+    tryResume();
+  }, { once: true });
   // 必须等 canplay(已经能播)再按 saved.playing 续播,
   // 否则从 0 开始播一秒再被 seek 到上次位置,会有“跳一下”的体验
-  mpAudio.addEventListener('canplay', () => {
-    if (saved.playing && mpAudio.paused) mpAudio.play().catch(() => {});
-  });
+  mpAudio.addEventListener('canplay', tryResume);
   }
 
   // 播放器 DOM 现由 partials.js 异步注入,先等 partials-ready;若分片已就位则直接初始化

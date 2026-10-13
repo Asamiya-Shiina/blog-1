@@ -16,11 +16,13 @@
   let timer = null;
   let stage = null, layers = [], dots = null;
 
+  let statusTimer;
   function setStatus(msg, ok) {
     if (!status) return;
     status.textContent = msg;
     status.classList.toggle('ok', !!ok);
-    if (msg) setTimeout(() => setStatus(''), 2600);
+    clearTimeout(statusTimer);
+    if (msg) statusTimer = setTimeout(() => setStatus(''), 2600);
   }
 
   function showEmpty(msg) {
@@ -107,6 +109,7 @@
       setStatus('加载相册失败', false);
       return;
     }
+    if (!Array.isArray(list)) list = [];
     photos = list;
     if (!photos.length) { showEmpty('相册还是空的,去右上角传几张 ✧'); return; }
     buildSlideshow();
@@ -168,7 +171,8 @@
     try {
       const me = await (await fetch('/api/me')).json();
       canManage = !!me.canManage;
-      if (!canManage && uploadBtn) uploadBtn.style.display = 'none';
+      if (canManage && uploadBtn) uploadBtn.hidden = false;
+      else if (uploadBtn) uploadBtn.hidden = true;
     } catch {}
     await loadPhotos();
   })();

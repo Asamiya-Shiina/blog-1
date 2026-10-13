@@ -14,6 +14,7 @@ const hero = document.querySelector('.hero');
 const ripple = document.getElementById('ripple');
 
 if (hero && ripple) {
+  let heroNavTimer;
   hero.addEventListener('pointerdown', (e) => {
     // 圆心 = 鼠标事件坐标。直接写 inline clip-path + 强制 reflow,
     // 绕开 CSS 变量 circle() 在过渡中对 at 位置的插值偏移。
@@ -25,6 +26,8 @@ if (hero && ripple) {
     ripple.style.clipPath = 'circle(150% at ' + cx + 'px ' + cy + 'px)';
     document.body.classList.add('profile-reveal');
     hero.classList.add('is-hiding');
-    setTimeout(() => { window.location.href = 'profile.html'; }, 750);
+    // 复用同一个 timer id,避免连点时叠多个 setTimeout 浪费调度
+    clearTimeout(heroNavTimer);
+    heroNavTimer = setTimeout(() => { window.location.href = 'profile.html'; }, 750);
   });
 }
