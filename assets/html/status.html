@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>实时状态 · 沐玺的博客</title>
+<meta name="description" content="实时查看各设备正在使用的应用。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23c0392b'/%3E%3Cstop offset='1' stop-color='%23e67e22'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='42' fill='url(%23g)'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/ripple.css">
+<style>
+  .status-title { text-align: center; padding: 32px 16px 8px; }
+  .status-headline { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 20px; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #999; }
+  .status-dot.online { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
+  .status-dot.offline { background: #999; }
+  .status-list { max-width: 560px; margin: 0 auto; padding: 0 16px 40px; display: flex; flex-direction: column; gap: 12px; }
+  .status-card {
+    background: rgba(255,255,255,.85); border-radius: 16px; padding: 14px 18px;
+    display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 18px rgba(192,57,43,.08);
+  }
+  .status-break { opacity: .75; }
+  .status-icon { font-size: 26px; width: 40px; height: 40px; display: grid; place-items: center;
+    background: linear-gradient(135deg,#ffd8cc,#ffe5c0); border-radius: 12px; flex: 0 0 auto; }
+  .status-info { flex: 1; min-width: 0; }
+  .status-app { font-weight: 600; color: #2c2c2c; }
+  .status-title-line { color: #777; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status-device { color: #b03a2e; font-size: .78rem; }
+  .status-time { color: #999; font-size: .78rem; white-space: nowrap; }
+  .status-empty { text-align: center; color: var(--muted); padding: 48px 20px; }
+  .status-nav { text-align: center; padding: 0 16px 24px; }
+  .status-nav a { color: #b03a2e; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div data-part="bg"></div>
+
+<header class="site-header">
+  <nav class="nav">
+    <div class="brand brand-clock">
+      <span class="bc-greet" id="bcGreet">早上好</span>
+      <span class="bc-time" id="bcTime">00:00:00</span>
+    </div>
+    <div class="nav-right">
+      <a class="login-entry" href="index.html" data-ripple>⌂ 首页</a>
+    </div>
+  </nav>
+</header>
+
+<main class="container">
+  <section class="status-title">
+    <h1>正在使用的设备</h1>
+    <div class="status-headline">
+      <span class="status-dot offline" id="statusDot"></span>
+      <span id="statusLabel">加载中…</span>
+    </div>
+  </section>
+  <div class="status-list" id="statusContent"><p class="status-empty">加载中…</p></div>
+  <div class="status-nav"><a href="index.html" data-ripple>← 返回首页</a></div>
+</main>
+
+<div data-part="footer"></div>
+
+<div class="ripple" id="ripple"></div>
+<div data-part="player"></div>
+
+<script src="assets/js/partials.js"></script>
+<script src="assets/js/player.js"></script>
+<script src="assets/js/clock.js"></script>
+<script src="assets/js/ripple.js"></script>
+<script>
+// 实时状态页:订阅 /api/data/stream(直接推全量),渲染所有活跃设备;8s 轮询兜底。
+const appIcons = {
+  'code': '📝', 'chrome': '🌐', 'firefox': '🐧', 'msedge': '🌐', 'edge': '🌐',
+  'idea64': '⚙️', 'idea': '⚙️', 'obsidian': '📚', 'figma': '🎨', 'typora': '✍️',
+  'notion': '📓', 'spotify': '🎵', 'discord': '💬', 'windowsterminal': '⌨️',
+  'explorer': '📂', 'wechat': '💬', 'code.exe': '📝',
+};
+const getIcon = (k) => appIcons[(k || '').toLowerCase()] || '💻';
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+}[c]));
+function formatTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+(function () {
+  const dot = document.getElementById('statusDot');
+  const label = document.getElementById('statusLabel');
+  const content = document.getElementById('statusContent');
+
+  function render(d) {
+    let devices = (d && Array.isArray(d.devices)) ? d.devices : [];
+    // 休息中的排最后,不打断其他活跃状态
+    const breaks = devices.filter((x) => x.icon === 'break');
+    const others = devices.filter((x) => x.icon !== 'break');
+    devices = others.concat(breaks);
+
+    if (!devices.length) {
+      dot.className = 'status-dot offline';
+      label.textContent = '离线';
+      content.innerHTML = '<p class="status-empty">当前没有设备正在使用应用。</p>';
+      return;
+    }
+    dot.className = 'status-dot online';
+    label.textContent = '在线 ( ' + devices.length + ' 台设备 )';
+
+    let html = '';
+    for (const dev of devices) {
+      const deviceName = dev.id ? (dev.id.split('_')[1] || '') : '';
+      const devHtml = deviceName ? '<div class="status-device">' + escapeHtml(deviceName) + '</div>' : '';
+      if (dev.icon === 'break') {
+        html += '<div class="status-card status-break"><div class="status-icon">☕</div><div class="status-info">'
+          + '<div class="status-app">' + escapeHtml(dev.app) + '</div>' + devHtml
+          + '</div><div class="status-time">' + formatTime(dev.updatedAt) + '</div></div>';
+        continue;
+      }
+      const titleHtml = dev.title
+        ? '<div class="status-title-line" title="' + escapeHtml(dev.title) + '">' + escapeHtml(dev.title) + '</div>'
+        : '';
+      html += '<div class="status-card"><div class="status-icon">' + getIcon(dev.icon) + '</div><div class="status-info">'
+        + '<div class="status-app">' + escapeHtml(dev.app) + '</div>' + titleHtml + devHtml
+        + '</div><div class="status-time">' + formatTime(dev.updatedAt) + '</div></div>';
+    }
+    content.innerHTML = html;
+  }
+
+  async function poll() {
+    try { render(await (await fetch('/api/data')).json()); } catch {}
+  }
+  poll();
+  setInterval(poll, 8000);
+  if (typeof EventSource !== 'undefined') {
+    const es = new EventSource('/api/data/stream');
+    es.onmessage = (ev) => { try { render(JSON.parse(ev.data)); } catch {} };
+    es.onerror = () => {};
+  }
+})();
+</script>
+</body>
+</html>

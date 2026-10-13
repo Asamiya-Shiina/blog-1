@@ -2,11 +2,20 @@
 data/
 blog.db
 uploads/
+photo/
 
 # 版本控制与文档元数据
 .git/
 .gitignore
 *.md
+
+# exe 客户端及构建产物(后端镜像不需要,有需要单独分发)
+client/
+dist/
+build/
+*.spec
+__pycache__/
+*.docx
 
 # 编辑器/系统临时
 .vscode/

@@ -10,6 +10,10 @@ COPY package.json* ./
 # HTML 页在 assets/html/ 下,随 assets/ 一并拷入,无需单独 COPY
 COPY assets/ ./assets/
 COPY music/ ./music/
+# 模块化后端(src/):路由/认证/DB 等逻辑所在,server.js 依赖它,必须一并拷入
+COPY src/ ./src/
+# 全站背景视频,首页 _bg.html 通过 /background/Scene1.mp4 引用
+COPY background/ ./background/
 COPY server.js ./
 
 EXPOSE 8080
